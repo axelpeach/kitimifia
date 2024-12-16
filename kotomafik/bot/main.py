@@ -1,44 +1,39 @@
-import logging
 import os
-from telegram import Update
-from telegram.ext import Application, CommandHandler, ContextTypes
+import asyncio
+from telegram.ext import Application, CommandHandler
 
-# Встановлення логування
-logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Зчитуємо змінні середовища
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 
-# Команда /start
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("воркаю")
+if not TELEGRAM_TOKEN or not WEBHOOK_URL:
+    raise ValueError("TELEGRAM_TOKEN або WEBHOOK_URL не задані в середовищі!")
 
-# Команда /murr
-async def murr(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user
-    await update.message.reply_text(f"{user.first_name} помурчав!🐾")
+# Створюємо екземпляр Application
+application = Application.builder().token(TELEGRAM_TOKEN).build()
 
-# Основна функція для запуску бота
+# Обробник команди /start
+async def start(update, context):
+    await update.message.reply_text("Бот активований!")
+
+# Реєструємо обробник команди
+application.add_handler(CommandHandler("start", start))
+
 async def main():
-    TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
-    WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # URL вашого вебхука (домен Render)
-
-    if not TELEGRAM_TOKEN or not WEBHOOK_URL:
-        logger.error("TELEGRAM_TOKEN або WEBHOOK_URL не задані в середовищі!")
-        return
-
-    # Створення бота
-    application = Application.builder().token(TELEGRAM_TOKEN).build()
-
-    # Реєстрація команд
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("murr", murr))
-
-    # Запуск вебхука
+    # Запускаємо вебхук
     await application.run_webhook(
-        listen="0.0.0.0",  # Вказуємо, що приймаємо всі підключення
-        port=8443,         # Порт для вебхука (Render відкриває 8443)
-        webhook_url="https://kitimifia.onrender.com",  # Ваш вебхук URL
+        listen="0.0.0.0",
+        port=8443,
+        webhook_url=WEBHOOK_URL,
     )
 
+# Запускаємо у вже існуючому циклі подій
 if __name__ == "__main__":
-    import asyncio
-    asyncio.run(main())
+    try:
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(main())
+    except RuntimeError as e:
+        if str(e) == "This event loop is already running":
+            asyncio.run(main())
+        else:
+            raise
