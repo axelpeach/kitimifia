@@ -3,40 +3,35 @@ import os
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
-# Отримання токена із секретів
-TOKEN = os.getenv("TELEGRAM_TOKEN")
-
-# URL-адреса для вебхука
-WEBHOOK_URL = "https://kitimifia.onrender.com"
-
-# Логування
-logging.basicConfig(level=logging.INFO)
+# Встановлення логування
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                    level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Команда /start
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await update.message.reply_text("Привіт! Бот працює.")
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("воркаю")
 
-# Основний код
-def main():
-    # Перевірка наявності токена
-    if not TOKEN:
-        logger.error("Токен Telegram не знайдено. Перевірте змінну оточення TELEGRAM_TOKEN.")
-        return
+# Команда /murr
+async def murr(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    await update.message.reply_text(f"{user.first_name} помурчав!🐾")
 
-    # Створення застосунку
-    application = Application.builder().token(TOKEN).build()
+# Основна функція для запуску бота
+async def main():
+    # Токен для доступу до вашого бота, можна використовувати секрети
+    TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 
-    # Додавання обробника команди /start
+    # Створення додатку та додавання команд
+    application = Application.builder().token(TELEGRAM_TOKEN).build()
+
     application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("murr", murr))
 
-    # Запуск вебхука
-    application.run_webhook(
-        listen="0.0.0.0",
-        port=8443,
-        url_path="webhook",
-        webhook_url=WEBHOOK_URL,
-    )
+    # Запуск polling для обробки повідомлень
+    await application.run_polling()
 
-if __name__ == "__main__":
-    main()
+# Запуск бота
+if __name__ == '__main__':
+    import asyncio
+    asyncio.run(main())
