@@ -1,11 +1,11 @@
 import logging
 import os
+import asyncio
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
 # Встановлення логування
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                    level=logging.INFO)
+logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Команда /start
@@ -19,19 +19,27 @@ async def murr(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # Основна функція для запуску бота
 async def main():
-    # Токен для доступу до вашого бота, можна використовувати секрети
     TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 
-    # Створення додатку та додавання команд
+    # Створення бота
     application = Application.builder().token(TELEGRAM_TOKEN).build()
 
+    # Реєстрація команд
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("murr", murr))
 
-    # Запуск polling для обробки повідомлень
+    # Запуск бота через polling
     await application.run_polling()
 
-# Запуск бота
-if __name__ == '__main__':
-    import asyncio
-    asyncio.run(main())
+# Перевірка та запуск event loop
+if __name__ == "__main__":
+    try:
+        # Якщо event loop уже існує, використовуємо його
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        # Якщо event loop не існує, створюємо новий
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+    # Запускаємо основну функцію
+    loop.run_until_complete(main())
