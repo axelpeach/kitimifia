@@ -36,7 +36,7 @@ async def main():
     await application.run_webhook(
         listen="0.0.0.0",  # Вказуємо, що приймаємо всі підключення
         port=8443,         # Порт для вебхука (Render відкриває 8443)
-        webhook_url=https://kitimifia.onrender.com,  # Ваш вебхук URL
+        webhook_url="https://kitimifia.onrender.com",  # Ваш вебхук URL
     )
 
 if __name__ == "__main__":
