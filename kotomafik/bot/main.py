@@ -7,7 +7,7 @@ from telegram.ext import Application, CommandHandler, ContextTypes
 TOKEN = os.getenv("TELEGRAM_TOKEN")
 
 # URL-адреса для вебхука
-WEBHOOK_URL = "https://your-app-name.onrender.com/webhook"
+WEBHOOK_URL = "https://kitimifia.onrender.com"
 
 # Логування
 logging.basicConfig(level=logging.INFO)
