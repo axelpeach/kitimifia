@@ -14,19 +14,24 @@ application = Application.builder().token(TELEGRAM_TOKEN).build()
 
 # Обробник для команди /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Бот запущений і працює через вебхук!")
+    await update.message.reply_text("Бот працює через вебхук!")
 
 # Додаємо обробник
 application.add_handler(CommandHandler("start", start))
 
 async def main():
     # Запускаємо вебхук
-    await application.run_webhook(
+    await application.initialize()
+    await application.start()
+    await application.updater.start_webhook(
         listen="0.0.0.0",
         port=8443,
         webhook_url=WEBHOOK_URL,
     )
 
+# Запускаємо бот
+import asyncio
+
 if __name__ == "__main__":
-    import asyncio
-    asyncio.run(main())
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(main())
