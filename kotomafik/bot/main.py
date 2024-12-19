@@ -1,6 +1,6 @@
 import os
-import asyncio
-from telegram.ext import Application, CommandHandler
+from telegram import Update
+from telegram.ext import Application, CommandHandler, ContextTypes
 
 # Зчитуємо змінні середовища
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
@@ -9,14 +9,14 @@ WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 if not TELEGRAM_TOKEN or not WEBHOOK_URL:
     raise ValueError("TELEGRAM_TOKEN або WEBHOOK_URL не задані в середовищі!")
 
-# Створюємо екземпляр Application
+# Створюємо Application
 application = Application.builder().token(TELEGRAM_TOKEN).build()
 
-# Обробник команди /start
-async def start(update, context):
-    await update.message.reply_text("Бот активований!")
+# Обробник для команди /start
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Бот запущений і працює через вебхук!")
 
-# Реєструємо обробник команди
+# Додаємо обробник
 application.add_handler(CommandHandler("start", start))
 
 async def main():
@@ -27,13 +27,6 @@ async def main():
         webhook_url=WEBHOOK_URL,
     )
 
-# Запускаємо у вже існуючому циклі подій
 if __name__ == "__main__":
-    try:
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(main())
-    except RuntimeError as e:
-        if str(e) == "This event loop is already running":
-            asyncio.run(main())
-        else:
-            raise
+    import asyncio
+    asyncio.run(main())
