@@ -1,54 +1,49 @@
 import os
+from aiohttp import web
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
-from aiohttp import web
 
-# Зчитуємо змінні середовища
+# Зчитуємо TELEGRAM_TOKEN і порт з оточення
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
-WEBHOOK_URL = os.getenv("WEBHOOK_URL")
-PORT = int(os.getenv("PORT", "8443"))
+PORT = int(os.getenv("PORT", 8000))  # За замовчуванням порт 8000, якщо змінна PORT не задана
+WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # URL вебхука (потрібно налаштувати в Telegram)
 
 if not TELEGRAM_TOKEN or not WEBHOOK_URL:
-    raise ValueError("TELEGRAM_TOKEN або WEBHOOK_URL не задані в середовищі!")
+    raise ValueError("TELEGRAM_TOKEN або WEBHOOK_URL не задані в змінних середовища!")
 
-# Створюємо Application
-application = Application.builder().token(TELEGRAM_TOKEN).build()
-
-# Обробник для команди /start
+# Команда /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Бот працює через вебхук!")
+    await update.message.reply_text("Бот працює!")
 
-# Додаємо обробник
-application.add_handler(CommandHandler("start", start))
-
-# Створюємо HTTP-сервер для Render
-async def health_check(request):
-    return web.Response(text="Бот працює!")
-
-app = web.Application()
-app.router.add_get("/", health_check)
-
+# Основна функція
 async def main():
-    # Запускаємо Telegram Application
-    await application.initialize()
-    await application.start()
-    await application.updater.start_webhook(
-        listen="0.0.0.0",
-        port=PORT,
-        webhook_url=WEBHOOK_URL,
-    )
-    print(f"Бот запущено на вебхуку: {WEBHOOK_URL}")
+    # Створюємо додаток Telegram
+    application = Application.builder().token(TELEGRAM_TOKEN).build()
 
-    # Запускаємо HTTP-сервер
+    # Реєструємо команду /start
+    application.add_handler(CommandHandler("start", start))
+
+    # Створюємо веб-сервер
+    async def handle_update(request):
+        json_data = await request.json()
+        await application.update_queue.put(json_data)
+        return web.Response()
+
+    # Налаштовуємо веб-сервер
+    app = web.Application()
+    app.router.add_post("/", handle_update)
+
+    # Встановлюємо вебхук
+    await application.bot.set_webhook(WEBHOOK_URL)
+
+    # Запускаємо веб-сервер
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, "0.0.0.0", PORT)
     await site.start()
 
-# Запускаємо
-import asyncio
+    print(f"Бот запущено. Слухаємо порт {PORT}...")
 
 if __name__ == "__main__":
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(main())
-    loop.run_forever()
+    import asyncio
+    asyncio.run(main())
