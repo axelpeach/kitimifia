@@ -1,42 +1,49 @@
 import os
-from aiohttp import web
+import logging
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
+from aiohttp import web
 
+# Налаштування логів
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Отримуємо токен з оточення
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
-WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 
-if not TELEGRAM_TOKEN or not WEBHOOK_URL:
-    raise RuntimeError("TELEGRAM_TOKEN або WEBHOOK_URL не задані в середовищі!")
+if not TELEGRAM_TOKEN:
+    raise RuntimeError("TELEGRAM_TOKEN не заданий в середовищі!")
 
+# Хендлер для команди /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Бот запущено!")
+    await update.message.reply_text("Бот працює через polling!")
 
-async def handle(request):
-    return web.Response(text="OK")
+# Маршрут для UptimeRobot
+async def health_check(request):
+    return web.Response(text="Бот працює!")
 
+# Основна функція
 async def main():
+    # Створюємо застосунок
     application = Application.builder().token(TELEGRAM_TOKEN).build()
 
+    # Додаємо обробники команд
     application.add_handler(CommandHandler("start", start))
 
-    # Запуск веб-сервера
+    # Запускаємо сервер для UptimeRobot
     app = web.Application()
-    app.router.add_post("/", application.update_queue.put)
+    app.router.add_get("/", health_check)  # Кореневий маршрут для перевірки
+    runner = web.AppRunner(app)
+    await runner.setup()
 
-    # Встановлення вебхука
-    async with application:
-        await application.bot.set_webhook(WEBHOOK_URL)
-        runner = web.AppRunner(app)
-        await runner.setup()
+    # Динамічно визначаємо порт для сервера
+    port = int(os.getenv("PORT", 8080))  # Render зазвичай використовує PORT
+    site = web.TCPSite(runner, "0.0.0.0", port)
+    logger.info(f"UptimeRobot сервер запущено на порту {port}")
+    await site.start()
 
-        port = int(os.environ.get("PORT", 443))  # Використовуємо стандартний HTTPS порт
-        site = web.TCPSite(runner, "0.0.0.0", port)
-        await site.start()
-
-        print(f"Сервер запущено на порту {port}.")
-        await application.start()
-        await application.stop()
+    # Запускаємо polling
+    await application.run_polling()
 
 if __name__ == "__main__":
     import asyncio
