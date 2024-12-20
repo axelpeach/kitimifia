@@ -3,6 +3,7 @@ import logging
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 from aiohttp import web
+import asyncio
 
 # Налаштування логів
 logging.basicConfig(level=logging.INFO)
@@ -42,9 +43,9 @@ async def main():
     logger.info(f"UptimeRobot сервер запущено на порту {port}")
     await site.start()
 
-    # Запускаємо polling
-    await application.run_polling()
+    # Запускаємо polling у фоновому режимі
+    asyncio.create_task(application.run_polling())
+    await asyncio.Event().wait()  # Тримаємо подіївий цикл активним
 
 if __name__ == "__main__":
-    import asyncio
     asyncio.run(main())
