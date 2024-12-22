@@ -39,7 +39,7 @@ async def mur_handler(update, context):
         if elapsed_time < timedelta(minutes=10):
             remaining_time = timedelta(minutes=10) - elapsed_time
             await update.message.reply_text(
-                f"твой мурчальнік перегрівся, зачекай {remaining_time.seconds // 60} хвилин та {remaining_time.seconds % 60} секунд перед наступним мурчанням."
+                f"твой мурчальнік перегрівся, зачекай {remaining_time.seconds // 60} хвилин та {remaining_time.seconds % 60} секунд."
             )
             return
 
