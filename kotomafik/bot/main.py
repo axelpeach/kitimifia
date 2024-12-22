@@ -6,19 +6,22 @@ from telegram.ext import Application, CommandHandler
 from collections import defaultdict
 from aiohttp import web
 
+# Логування
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 mur_counts = defaultdict(int)
-last_mur_time = {}  # Словник для зберігання часу останнього виклику команди кожним користувачем
+last_mur_time = {}
 
-# Завантажуємо токен із змінної середовища
+# Завантажуємо токен і домен із змінних середовища
 TOKEN = os.getenv("TELEGRAM_TOKEN")
+DOMAIN = os.getenv("DOMAIN")  # Ваш домен (наприклад, example.com)
+PORT = int(os.getenv("PORT", 10000))  # Порт сервера
+
 if not TOKEN:
     raise ValueError("Не знайдено змінної середовища TELEGRAM_TOKEN")
-
-PORT = int(os.getenv("PORT", 10000))  # Порт із середовища, або 10000 за замовчуванням
-WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # Ваш URL для вебхука
+if not DOMAIN:
+    raise ValueError("Не знайдено змінної середовища DOMAIN")
 
 # Хендлер для команди /start
 async def start(update, context):
@@ -28,11 +31,8 @@ async def start(update, context):
 async def mur_handler(update, context):
     user_id = update.effective_user.id
     user_first_name = update.effective_user.first_name
-
-    # Поточний час
     now = datetime.now()
 
-    # Перевірка часу останнього виклику
     if user_id in last_mur_time:
         elapsed_time = now - last_mur_time[user_id]
         if elapsed_time < timedelta(minutes=10):
@@ -42,10 +42,8 @@ async def mur_handler(update, context):
             )
             return
 
-    # Оновлюємо час останнього виклику
     last_mur_time[user_id] = now
 
-    # Обробка аргументів та мурчання
     if context.args:
         try:
             new_count = int(context.args[0])
@@ -61,40 +59,20 @@ async def mur_handler(update, context):
         count = mur_counts[user_first_name]
         await update.message.reply_text(f"{user_first_name} помурчав 🐾. Всього мурчань: {count}.")
 
-# Функція для запуску Telegram-бота
+# Функція для запуску Telegram-бота з вебхуками
 async def run_telegram_bot():
     application = Application.builder().token(TOKEN).build()
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("murr", mur_handler))
 
-    # Установлюємо вебхук
-    logger.info("Встановлюємо вебхук...")
-    await application.bot.set_webhook(WEBHOOK_URL + "/webhook")
+    webhook_url = f"https://{DOMAIN}/webhook"
+    await application.bot.set_webhook(webhook_url)
 
-    # Повертаємо об'єкт програми
-    return application
+    logger.info(f"Webhook встановлено: {webhook_url}")
 
-# Функція для обробки запитів вебхука
-async def telegram_webhook(request):
-    application = request.app["bot_app"]
-    data = await request.json()
-    await application.update_queue.put(data)
-    return web.Response(text="OK")
-
-# Функція для UptimeRobot
-async def handle_uptime(request):
-    return web.Response(text="UptimeRobot працює!")
-
-# Головна функція
-async def main():
-    # Запуск Telegram-бота
-    application = await run_telegram_bot()
-
-    # Налаштування FastAPI
+    # Запускаємо aiohttp сервер для прийому запитів
     app = web.Application()
-    app["bot_app"] = application
-    app.router.add_post("/webhook", telegram_webhook)
-    app.router.add_get("/", handle_uptime)
+    app.router.add_post('/webhook', application.webhook_handler)
 
     runner = web.AppRunner(app)
     await runner.setup()
@@ -102,10 +80,29 @@ async def main():
     await site.start()
 
     logger.info(f"Сервер запущено на порту {PORT}")
-    logger.info("Бот готовий до роботи.")
-
-    # Очікування завершення роботи
     await asyncio.Event().wait()
+
+# Функція для UptimeRobot
+async def handle_uptime(request):
+    return web.Response(text="UptimeRobot працює!")
+
+async def run_uptime_robot():
+    app = web.Application()
+    app.router.add_get("/", handle_uptime)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "0.0.0.0", PORT + 1)  # Інший порт для UptimeRobot
+    await site.start()
+    logger.info(f"UptimeRobot сервер запущено на порту {PORT + 1}")
+    while True:
+        await asyncio.sleep(3600)  # Утримуємо сервер активним
+
+# Головна функція
+async def main():
+    await asyncio.gather(
+        run_telegram_bot(),
+        run_uptime_robot()
+    )
 
 if __name__ == "__main__":
     try:
