@@ -17,7 +17,7 @@ PORT = int(os.getenv("PORT", 10000))  # Порт із середовища, аб
 
 # Хендлер для команди /start
 async def start(update, context):
-    await update.message.reply_text("Привіт! Я твій бот.")
+    await update.message.reply_text("воркаю 🥺")
 
 # Функція для запуску Telegram-бота
 async def run_telegram_bot():
