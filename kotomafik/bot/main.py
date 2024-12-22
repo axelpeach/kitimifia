@@ -1,11 +1,13 @@
 import os
 import asyncio
 import logging
+import logging
 from datetime import datetime, timedelta
 from telegram.ext import Application, CommandHandler
 from collections import defaultdict
 from aiohttp import web
 
+logging.basicConfig(level=logging.DEBUG)
 # Логування
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
