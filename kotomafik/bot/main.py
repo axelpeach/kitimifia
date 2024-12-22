@@ -24,7 +24,10 @@ async def run_telegram_bot():
     application = Application.builder().token(TOKEN).build()
     application.add_handler(CommandHandler("start", start))
     logger.info("Запускаємо Telegram polling...")
-    await application.run_polling()
+    await application.initialize()
+    await application.start()
+    await application.updater.start_polling()  # Запускаємо polling
+    await asyncio.Event().wait()  # Блокуючий виклик для утримання програми активною
 
 # Функція для UptimeRobot
 async def handle_uptime(request):
@@ -39,7 +42,7 @@ async def run_uptime_robot():
     await site.start()
     logger.info(f"UptimeRobot сервер запущено на порту {PORT}")
     while True:
-        await asyncio.sleep(3600)
+        await asyncio.sleep(3600)  # Утримуємо сервер активним
 
 # Головна функція
 async def main():
@@ -49,4 +52,7 @@ async def main():
     )
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except (KeyboardInterrupt, SystemExit):
+        logger.info("Бот зупинено.")
