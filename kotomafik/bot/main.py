@@ -15,13 +15,13 @@ last_mur_time = {}
 
 # Завантажуємо токен і домен із змінних середовища
 TOKEN = os.getenv("TELEGRAM_TOKEN")
-DOMAIN = os.getenv("DOMAIN")  # Ваш домен (наприклад, example.com)
+DOMAIN = os.getenv("WEBHOOK_URL")  # Ваш домен (наприклад, example.com)
 PORT = int(os.getenv("PORT", 10000))  # Порт сервера
 
 if not TOKEN:
     raise ValueError("Не знайдено змінної середовища TELEGRAM_TOKEN")
 if not DOMAIN:
-    raise ValueError("Не знайдено змінної середовища DOMAIN")
+    raise ValueError("Не знайдено змінної середовища WEBHOOK_URL")
 
 # Хендлер для команди /start
 async def start(update, context):
