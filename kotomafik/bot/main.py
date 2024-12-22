@@ -1,55 +1,51 @@
 import os
-import logging
 import asyncio
-from aiohttp import web
+import logging
 from telegram.ext import Application, CommandHandler
+from aiohttp import web
 
-# Налаштування логування
+# Логування
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Завантаження токена Telegram і порту
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
-PORT = int(os.getenv("PORT", 8080))  # Render надає порт через змінну середовища
+# Завантажуємо токен із змінної середовища
+TOKEN = os.getenv("TELEGRAM_TOKEN")
+if not TOKEN:
+    raise ValueError("Не знайдено змінної середовища TELEGRAM_TOKEN")
 
-# Telegram команда /start
+PORT = int(os.getenv("PORT", 10000))  # Порт із середовища, або 10000 за замовчуванням
+
+# Хендлер для команди /start
 async def start(update, context):
-    await update.message.reply_text("Бот працює!")
+    await update.message.reply_text("Привіт! Я твій бот.")
 
-# Основна функція Telegram бота
+# Функція для запуску Telegram-бота
 async def run_telegram_bot():
-    # Створення Telegram застосунку
-    application = Application.builder().token(TELEGRAM_TOKEN).build()
-
-    # Реєстрація команди
+    application = Application.builder().token(TOKEN).build()
     application.add_handler(CommandHandler("start", start))
-
-    # Запуск Telegram polling
     logger.info("Запускаємо Telegram polling...")
     await application.run_polling()
 
-# Основна функція UptimeRobot
-async def run_uptime_server():
-    async def handle_healthcheck(request):
-        return web.Response(text="Бот працює!")
+# Функція для UptimeRobot
+async def handle_uptime(request):
+    return web.Response(text="UptimeRobot працює!")
 
+async def run_uptime_robot():
     app = web.Application()
-    app.router.add_get("/", handle_healthcheck)
-
+    app.router.add_get("/", handle_uptime)
     runner = web.AppRunner(app)
     await runner.setup()
-
-    # Сервер слухає на вказаному порту
     site = web.TCPSite(runner, "0.0.0.0", PORT)
-    logger.info(f"UptimeRobot сервер запущено на порту {PORT}")
     await site.start()
+    logger.info(f"UptimeRobot сервер запущено на порту {PORT}")
+    while True:
+        await asyncio.sleep(3600)
 
 # Головна функція
 async def main():
-    # Запускаємо два процеси паралельно
     await asyncio.gather(
-        run_uptime_server(),
         run_telegram_bot(),
+        run_uptime_robot()
     )
 
 if __name__ == "__main__":
