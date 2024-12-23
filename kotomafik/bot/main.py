@@ -10,6 +10,7 @@ from aiohttp import web
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Глобальні змінні
 mur_counts = defaultdict(int)
 last_mur_time = {}
 
@@ -25,7 +26,13 @@ if not DOMAIN:
 
 # Хендлер для команди /start
 async def start(update, context):
-    logger.info(f"Команда /start отримана від {update.message.from_user.first_name}")
+    user = update.message.from_user if update.message else None
+    if user:
+        logger.info(f"Команда /start отримана від {user.first_name} (ID: {user.id})")
+    else:
+        logger.error("update.message відсутній! Завершення виконання функції.")
+        return
+
     try:
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
@@ -74,14 +81,6 @@ async def mur_handler(update, context):
 # Обробник запитів для UptimeRobot
 async def handle_uptime(request):
     return web.Response(text="UptimeRobot працює!")
-    
-    # Логування інформації про користувача
-    if update.message:
-        user = update.message.from_user
-        logger.info(f"Команда /start отримана від {user.first_name} (ID: {user.id})")
-    else:
-        logger.error("update.message відсутній! Завершення виконання функції.")
-        return
 
 # Функція для запуску Telegram бота
 async def run_telegram_bot():
@@ -97,7 +96,6 @@ async def run_telegram_bot():
     # Aiohttp сервер для обробки вебхуків
     app = web.Application()
 
-    # Хендлер для вебхуків
     async def handle_webhook(request):
         data = await request.json()
         logger.info(f"Отримано дані вебхука: {data}")
