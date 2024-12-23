@@ -4,7 +4,6 @@ import asyncio
 from datetime import datetime, timedelta
 from telegram.ext import Application, CommandHandler
 from collections import defaultdict
-from aiohttp import web
 
 # Логування
 logging.basicConfig(level=logging.INFO)
@@ -79,10 +78,12 @@ async def run_telegram_bot():
 
 # Головна функція
 async def main():
-    await run_telegram_bot()
+    # Запуск бота
+    task = asyncio.create_task(run_telegram_bot())
+    await task
 
 if __name__ == "__main__":
     try:
-        asyncio.run(main())
+        asyncio.run(main())  # В цьому місці використовуємо asyncio.run()
     except (KeyboardInterrupt, SystemExit):
         logger.info("Бот зупинено.")
