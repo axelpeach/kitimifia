@@ -81,13 +81,20 @@ async def run_telegram_bot():
 
     # Aiohttp сервер для обробки вебхуків
     app = web.Application()
-    app.router.add_post('/webhook', application.webhook_handler)
+
+    # Додано правильний хендлер для обробки вебхуків
+    async def handle_webhook(request):
+        data = await request.json()
+        await application.update_queue.put(data)
+        return web.Response(text="OK")
+
+    app.router.add_post('/webhook', handle_webhook)
 
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, "0.0.0.0", PORT)
     await site.start()
-    logger.info(f"UptimeRobot сервер запущено на порту {PORT}")
+    logger.info(f"Telegram Webhook сервер запущено на порту {PORT}")
 
 
 # Функція для запуску сервера UptimeRobot
