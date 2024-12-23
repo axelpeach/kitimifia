@@ -59,43 +59,25 @@ async def mur_handler(update, context):
         count = mur_counts[user_first_name]
         await update.message.reply_text(f"{user_first_name} помурчав 🐾. Всього мурчань: {count}.")
 
-# Функція для запуску Telegram-бота з вебхуками
 async def run_telegram_bot():
     application = Application.builder().token(TOKEN).build()
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("murr", mur_handler))
-
+    
+    # Встановлюємо webhook
     webhook_url = f"https://{DOMAIN}/webhook"
     await application.bot.set_webhook(webhook_url)
-
     logger.info(f"Webhook встановлено: {webhook_url}")
 
-    # Запускаємо aiohttp сервер для прийому запитів
+    # Aiohttp сервер для обробки вебхуків
     app = web.Application()
-    app.router.add_post('/webhook', application.webhook_handler)
-
+    app.router.add_post('/webhook', application.update_queue.put)  # Фікс
+    
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, "0.0.0.0", PORT)
     await site.start()
-
-    logger.info(f"Сервер запущено на порту {PORT}")
-    await asyncio.Event().wait()
-
-# Функція для UptimeRobot
-async def handle_uptime(request):
-    return web.Response(text="UptimeRobot працює!")
-
-async def run_uptime_robot():
-    app = web.Application()
-    app.router.add_get("/", handle_uptime)
-    runner = web.AppRunner(app)
-    await runner.setup()
-    site = web.TCPSite(runner, "0.0.0.0", PORT + 1)  # Інший порт для UptimeRobot
-    await site.start()
-    logger.info(f"UptimeRobot сервер запущено на порту {PORT + 1}")
-    while True:
-        await asyncio.sleep(3600)  # Утримуємо сервер активним
+    logger.info(f"UptimeRobot сервер запущено на порту {PORT}")
 
 # Головна функція
 async def main():
