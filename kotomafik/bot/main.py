@@ -126,6 +126,6 @@ async def run_uptime_robot():
 
 if __name__ == "__main__":
     try:
-        asyncio.run(main())
+        asyncio.run(main())  # викликаємо функцію main
     except (KeyboardInterrupt, SystemExit):
         logger.info("Бот зупинено.")
