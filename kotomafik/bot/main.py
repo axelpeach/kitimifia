@@ -77,13 +77,12 @@ async def run_telegram_bot():
     await application.run_polling()
 
 # Головна функція
-async def main():
-    # Запуск бота
-    task = asyncio.create_task(run_telegram_bot())
-    await task
+def main():
+    # Запуск бота (полінг)
+    asyncio.run(run_telegram_bot())
 
 if __name__ == "__main__":
     try:
-        asyncio.run(main())  # В цьому місці використовуємо asyncio.run()
+        main()  # Тепер викликаємо без asyncio.run() в основній функції
     except (KeyboardInterrupt, SystemExit):
         logger.info("Бот зупинено.")
