@@ -34,7 +34,6 @@ async def mur_handler(update, context):
     user_id = update.effective_user.id
     user_first_name = update.effective_user.first_name
     now = datetime.now()
-
     if user_id in last_mur_time:
         elapsed_time = now - last_mur_time[user_id]
         if elapsed_time < timedelta(minutes=10):
@@ -43,9 +42,7 @@ async def mur_handler(update, context):
                 f"твой мурчальнік перегрівся, зачекай {remaining_time.seconds // 60} хвилин та {remaining_time.seconds % 60} секунд."
             )
             return
-
     last_mur_time[user_id] = now
-
     if context.args:
         try:
             new_count = int(context.args[0])
@@ -70,7 +67,6 @@ async def handle_uptime(request):
 # Функція для запуску Telegram бота
 async def run_telegram_bot():
     application = Application.builder().token(TOKEN).build()
-
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("murr", mur_handler))
 
@@ -82,14 +78,12 @@ async def run_telegram_bot():
     # Aiohttp сервер для обробки вебхуків
     app = web.Application()
 
-    # Додано правильний хендлер для обробки вебхуків
     async def handle_webhook(request):
         data = await request.json()
         await application.update_queue.put(data)
         return web.Response(text="OK")
 
     app.router.add_post('/webhook', handle_webhook)
-
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, "0.0.0.0", PORT)
@@ -101,13 +95,11 @@ async def run_telegram_bot():
 async def run_uptime_robot():
     app = web.Application()
     app.router.add_get("/", handle_uptime)
-
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, "0.0.0.0", PORT + 1)  # Сервер для UptimeRobot на іншому порту
     await site.start()
     logger.info(f"UptimeRobot сервер запущено на порту {PORT + 1}")
-
     # Утримуємо сервер активним
     while True:
         await asyncio.sleep(3600)
