@@ -23,10 +23,8 @@ if not TOKEN:
 if not DOMAIN:
     raise ValueError("Не знайдено змінної середовища DOMAIN")
 
-# Хендлер для команди /start
-async def start(update, context):
-    logger.info(f"Команда /start отримана від {update.message.from_user.first_name}")
-    await update.message.reply_text(f"Привіт, {update.message.from_user.first_name}! Вітаю на борту! 🥳")
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("воркаю")
 
 # Хендлер для команди /murr
 async def mur_handler(update, context):
@@ -78,13 +76,6 @@ async def start(update, context):
     else:
         logger.error("update.message відсутній! Завершення виконання функції.")
         return
-
-    # Логування інформації про чат
-    if update.message.chat:
-        chat = update.message.chat
-        logger.info(f"Чат: {chat.title if chat.title else 'Приватний чат'} (ID: {chat.id})")
-    else:
-        logger.error("update.message.chat відсутній!")
 
     # Спроба відповісти користувачу
     try:
