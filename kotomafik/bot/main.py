@@ -124,6 +124,7 @@ async def run_uptime_robot():
         run_uptime_robot()
     )
 
+# Перевірка запуску
 if __name__ == "__main__":
     try:
         asyncio.run(main())  # викликаємо функцію main
