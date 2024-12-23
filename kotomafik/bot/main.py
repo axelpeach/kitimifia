@@ -10,7 +10,6 @@ from aiohttp import web
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Змінні для підрахунку мурчань
 mur_counts = defaultdict(int)
 last_mur_time = {}
 
@@ -19,7 +18,6 @@ TOKEN = os.getenv("TELEGRAM_TOKEN")
 DOMAIN = os.getenv("DOMAIN")  # Ваш домен (наприклад, example.com)
 PORT = int(os.getenv("PORT", 10000))  # Порт сервера
 
-# Перевірка наявності токену та домену
 if not TOKEN:
     raise ValueError("Не знайдено змінної середовища TELEGRAM_TOKEN")
 if not DOMAIN:
@@ -27,8 +25,8 @@ if not DOMAIN:
 
 # Хендлер для команди /start
 async def start(update, context):
-    logger.info(f"Отримано команду /start від користувача: {update.effective_user.username}")
-    await update.message.reply_text("воркаю 🥺")
+    logger.info(f"Команда /start отримана від {update.message.from_user.first_name}")
+    await update.message.reply_text(f"Привіт, {update.message.from_user.first_name}! Вітаю на борту! 🥳")
 
 # Хендлер для команди /murr
 async def mur_handler(update, context):
@@ -36,19 +34,21 @@ async def mur_handler(update, context):
     user_first_name = update.effective_user.first_name
     now = datetime.now()
 
-    # Перевірка часу між мурчаннями
+    logger.info(f"Команда /murr отримана від {user_first_name} ({user_id})")
+
+    # Перевірка часу для обмеження мурчань
     if user_id in last_mur_time:
         elapsed_time = now - last_mur_time[user_id]
         if elapsed_time < timedelta(minutes=10):
             remaining_time = timedelta(minutes=10) - elapsed_time
+            logger.info(f"Від {user_first_name}: залишилось часу для наступного мурчання: {remaining_time}")
             await update.message.reply_text(
-                f"твой мурчальнік перегрівся, зачекай {remaining_time.seconds // 60} хвилин та {remaining_time.seconds % 60} секунд."
+                f"Твой мурчальнік перегрівся, зачекай {remaining_time.seconds // 60} хвилин та {remaining_time.seconds % 60} секунд."
             )
             return
 
     last_mur_time[user_id] = now
 
-    # Обробка введення кількості мурчань
     if context.args:
         try:
             new_count = int(context.args[0])
@@ -66,14 +66,11 @@ async def mur_handler(update, context):
 
 # Обробник запитів для UptimeRobot
 async def handle_uptime(request):
-    logger.info("Обробка запиту для UptimeRobot")
     return web.Response(text="UptimeRobot працює!")
 
 # Функція для запуску Telegram бота
 async def run_telegram_bot():
     application = Application.builder().token(TOKEN).build()
-
-    # Додавання хендлерів
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("murr", mur_handler))
 
@@ -85,7 +82,7 @@ async def run_telegram_bot():
     # Aiohttp сервер для обробки вебхуків
     app = web.Application()
 
-    # Обробник вебхуків
+    # Хендлер для вебхуків
     async def handle_webhook(request):
         data = await request.json()
         logger.info(f"Отримано дані вебхука: {data}")
@@ -93,40 +90,34 @@ async def run_telegram_bot():
         return web.Response(text="OK")
 
     app.router.add_post('/webhook', handle_webhook)
-
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, "0.0.0.0", PORT)
     await site.start()
-
     logger.info(f"Telegram Webhook сервер запущено на порту {PORT}")
 
 # Функція для запуску сервера UptimeRobot
 async def run_uptime_robot():
     app = web.Application()
     app.router.add_get("/", handle_uptime)
-
     runner = web.AppRunner(app)
     await runner.setup()
-
     site = web.TCPSite(runner, "0.0.0.0", PORT + 1)  # Сервер для UptimeRobot на іншому порту
     await site.start()
-
     logger.info(f"UptimeRobot сервер запущено на порту {PORT + 1}")
-
     # Утримуємо сервер активним
     while True:
         await asyncio.sleep(3600)
 
+# Головна функція
 async def main():
     await asyncio.gather(
         run_telegram_bot(),
         run_uptime_robot()
     )
 
-# Перевірка запуску
 if __name__ == "__main__":
     try:
-        asyncio.run(main())  # викликаємо функцію main
+        asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
         logger.info("Бот зупинено.")
