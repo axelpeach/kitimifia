@@ -1,27 +1,38 @@
 import os
-import logging
 import asyncio
+import logging
 from datetime import datetime, timedelta
 from telegram.ext import Application, CommandHandler
 from collections import defaultdict
+from aiohttp import web
 
 # Логування
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Глобальні змінні
 mur_counts = defaultdict(int)
 last_mur_time = {}
 
 # Завантажуємо токен і домен із змінних середовища
 TOKEN = os.getenv("TELEGRAM_TOKEN")
+DOMAIN = os.getenv("DOMAIN")  # Ваш домен (наприклад, example.com)
 PORT = int(os.getenv("PORT", 10000))  # Порт сервера
 
 if not TOKEN:
     raise ValueError("Не знайдено змінної середовища TELEGRAM_TOKEN")
+if not DOMAIN:
+    raise ValueError("Не знайдено змінної середовища DOMAIN")
 
 # Хендлер для команди /start
 async def start(update, context):
-    logger.info(f"Команда /start отримана від {update.message.from_user.first_name}")
+    user = update.message.from_user if update.message else None
+    if user:
+        logger.info(f"Команда /start отримана від {user.first_name} (ID: {user.id})")
+    else:
+        logger.error("update.message відсутній! Завершення виконання функції.")
+        return
+
     try:
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
@@ -67,22 +78,59 @@ async def mur_handler(update, context):
         count = mur_counts[user_first_name]
         await update.message.reply_text(f"{user_first_name} помурчав 🐾. Всього мурчань: {count}.")
 
+# Обробник запитів для UptimeRobot
+async def handle_uptime(request):
+    return web.Response(text="UptimeRobot працює!")
+
 # Функція для запуску Telegram бота
 async def run_telegram_bot():
     application = Application.builder().token(TOKEN).build()
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("murr", mur_handler))
 
-    # Запуск полінгу
-    await application.run_polling()
+    # Встановлюємо webhook
+    webhook_url = f"https://{DOMAIN}/webhook"
+    await application.bot.set_webhook(webhook_url)
+    logger.info(f"Webhook встановлено: {webhook_url}")
+
+    # Aiohttp сервер для обробки вебхуків
+    app = web.Application()
+
+    async def handle_webhook(request):
+        data = await request.json()
+        logger.info(f"Отримано дані вебхука: {data}")
+        await application.update_queue.put(data)
+        return web.Response(text="OK")
+
+    app.router.add_post('/webhook', handle_webhook)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "0.0.0.0", PORT)
+    await site.start()
+    logger.info(f"Telegram Webhook сервер запущено на порту {PORT}")
+
+# Функція для запуску сервера UptimeRobot
+async def run_uptime_robot():
+    app = web.Application()
+    app.router.add_get("/", handle_uptime)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "0.0.0.0", PORT + 1)  # Сервер для UptimeRobot на іншому порту
+    await site.start()
+    logger.info(f"UptimeRobot сервер запущено на порту {PORT + 1}")
+    # Утримуємо сервер активним
+    while True:
+        await asyncio.sleep(3600)
 
 # Головна функція
-def main():
-    # Запуск бота (полінг)
-    asyncio.run(run_telegram_bot())
+async def main():
+    await asyncio.gather(
+        run_telegram_bot(),
+        run_uptime_robot()
+    )
 
 if __name__ == "__main__":
     try:
-        main()  # Тепер викликаємо без asyncio.run() в основній функції
+        asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
         logger.info("Бот зупинено.")
