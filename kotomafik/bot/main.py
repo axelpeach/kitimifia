@@ -118,7 +118,7 @@ async def run_uptime_robot():
     while True:
         await asyncio.sleep(3600)
 
-# Головна функціяasync def main():
+async def main():
     await asyncio.gather(
         run_telegram_bot(),
         run_uptime_robot()
