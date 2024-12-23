@@ -1,99 +1,123 @@
-import logging
+import os
 import asyncio
-from datetime import datetime
+import logging
+from datetime import datetime, timedelta
+from telegram.ext import Application, CommandHandler
+from collections import defaultdict
 from aiohttp import web
-from telegram import Update
-from telegram.ext import Application, CommandHandler, ContextTypes
 
-# Налаштування логування
+# Логування
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Змінна для збереження лічильника мурчань
-mur_counts = {}
+mur_counts = defaultdict(int)
+last_mur_time = {}
+
+# Завантажуємо токен і домен із змінних середовища
+TOKEN = os.getenv("TELEGRAM_TOKEN")
+DOMAIN = os.getenv("DOMAIN")  # Ваш домен (наприклад, example.com)
+PORT = int(os.getenv("PORT", 10000))  # Порт сервера
+
+if not TOKEN:
+    raise ValueError("Не знайдено змінної середовища TELEGRAM_TOKEN")
+if not DOMAIN:
+    raise ValueError("Не знайдено змінної середовища DOMAIN")
 
 # Хендлер для команди /start
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    try:
-        logger.info(f"Команда /start отримана від {update.message.from_user.first_name}")
-        await update.message.reply_text(f"Привіт, {update.message.from_user.first_name}! Вітаю на борту! 🥳")
-    except Exception as e:
-        logger.error(f"Помилка при обробці команди /start: {e}")
+async def start(update, context):
+    logger.info(f"Команда /start отримана від {update.message.from_user.first_name}")
+    await update.message.reply_text(f"Привіт, {update.message.from_user.first_name}! Вітаю на борту! 🥳")
 
 # Хендлер для команди /murr
-async def mur_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    try:
-        user_id = update.effective_user.id
-        user_first_name = update.effective_user.first_name
-        now = datetime.now()
+async def mur_handler(update, context):
+    user_id = update.effective_user.id
+    user_first_name = update.effective_user.first_name
+    now = datetime.now()
 
-        logger.info(f"Команда /murr отримана від {user_first_name} ({user_id})")
+    logger.info(f"Команда /murr отримана від {user_first_name} ({user_id})")
 
-        if context.args:
-            try:
-                new_count = int(context.args[0])
-                if new_count < 0:
-                    await update.message.reply_text("Кількість мурчань не може бути від'ємною.")
-                    return
-                mur_counts[user_first_name] = new_count
-                await update.message.reply_text(f"{user_first_name} чітер! Всього мурчань: {new_count}")
-            except ValueError:
-                await update.message.reply_text("Будь ласка, введіть число для оновлення кількості мурчань🐾.")
-        else:
-            mur_counts[user_first_name] += 1
-            count = mur_counts[user_first_name]
-            await update.message.reply_text(f"{user_first_name} помурчав 🐾. Всього мурчань: {count}.")
-    except Exception as e:
-        logger.error(f"Помилка при обробці команди /murr: {e}")
+    # Перевірка часу для обмеження мурчань
+    if user_id in last_mur_time:
+        elapsed_time = now - last_mur_time[user_id]
+        if elapsed_time < timedelta(minutes=10):
+            remaining_time = timedelta(minutes=10) - elapsed_time
+            logger.info(f"Від {user_first_name}: залишилось часу для наступного мурчання: {remaining_time}")
+            await update.message.reply_text(
+                f"Твой мурчальнік перегрівся, зачекай {remaining_time.seconds // 60} хвилин та {remaining_time.seconds % 60} секунд."
+            )
+            return
 
-# Функція для обробки вебхука
-async def handle_webhook(request):
-    try:
+    last_mur_time[user_id] = now
+
+    if context.args:
+        try:
+            new_count = int(context.args[0])
+            if new_count < 0:
+                await update.message.reply_text("Кількість мурчань не може бути від'ємною.")
+                return
+            mur_counts[user_first_name] = new_count
+            await update.message.reply_text(f"{user_first_name} чітер! Всього мурчань: {new_count}")
+        except ValueError:
+            await update.message.reply_text("Будь ласка, введіть число для оновлення кількості мурчань🐾.")
+    else:
+        mur_counts[user_first_name] += 1
+        count = mur_counts[user_first_name]
+        await update.message.reply_text(f"{user_first_name} помурчав 🐾. Всього мурчань: {count}.")
+
+# Обробник запитів для UptimeRobot
+async def handle_uptime(request):
+    return web.Response(text="UptimeRobot працює!")
+
+# Функція для запуску Telegram бота
+async def run_telegram_bot():
+    application = Application.builder().token(TOKEN).build()
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("murr", mur_handler))
+
+    # Встановлюємо webhook
+    webhook_url = f"https://{DOMAIN}/webhook"
+    await application.bot.set_webhook(webhook_url)
+    logger.info(f"Webhook встановлено: {webhook_url}")
+
+    # Aiohttp сервер для обробки вебхуків
+    app = web.Application()
+
+    # Хендлер для вебхуків
+    async def handle_webhook(request):
         data = await request.json()
         logger.info(f"Отримано дані вебхука: {data}")
-        await application.update_queue.put(data)  # ставимо оновлення у чергу
+        await application.update_queue.put(data)
         return web.Response(text="OK")
-    except Exception as e:
-        logger.error(f"Помилка при обробці вебхука: {e}")
-        return web.Response(text="Error", status=500)
 
-# Налаштування та запуск бота
-async def run_telegram_bot():
-    try:
-        application = Application.builder().token("YOUR_BOT_TOKEN").build()
+    app.router.add_post('/webhook', handle_webhook)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "0.0.0.0", PORT)
+    await site.start()
+    logger.info(f"Telegram Webhook сервер запущено на порту {PORT}")
 
-        application.add_handler(CommandHandler("start", start))
-        application.add_handler(CommandHandler("murr", mur_handler))
-
-        # Запуск бота
-        await application.initialize()
-        logger.info("Бот запущений та готовий до роботи.")
-        await application.start_polling()
-    except Exception as e:
-        logger.error(f"Помилка при запуску Telegram бота: {e}")
-
-# Запуск UptimeRobot сервісу
+# Функція для запуску сервера UptimeRobot
 async def run_uptime_robot():
-    try:
-        # Тут ваш код для моніторингу сервісу через UptimeRobot
-        pass
-    except Exception as e:
-        logger.error(f"Помилка при запуску UptimeRobot: {e}")
+    app = web.Application()
+    app.router.add_get("/", handle_uptime)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "0.0.0.0", PORT + 1)  # Сервер для UptimeRobot на іншому порту
+    await site.start()
+    logger.info(f"UptimeRobot сервер запущено на порту {PORT + 1}")
+    # Утримуємо сервер активним
+    while True:
+        await asyncio.sleep(3600)
 
-# Основна функція
+# Головна функція
 async def main():
-    try:
-        await asyncio.gather(
-            run_telegram_bot(),
-            run_uptime_robot()
-        )
-    except Exception as e:
-        logger.error(f"Помилка в основній функції: {e}")
+    await asyncio.gather(
+        run_telegram_bot(),
+        run_uptime_robot()
+    )
 
-# Запуск сервера
-if name == '__main__':
+if __name__ == "__main__":
     try:
-        logger.info("Запуск сервісу...")
-        asyncio.run(main())  # викликаємо основну функцію
-    except Exception as e:
-        logger.error(f"Помилка при запуску сервісу: {e}")
+        asyncio.run(main())
+    except (KeyboardInterrupt, SystemExit):
+        logger.info("Бот зупинено.")
