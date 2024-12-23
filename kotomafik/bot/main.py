@@ -23,9 +23,11 @@ if not TOKEN:
 if not DOMAIN:
     raise ValueError("Не знайдено змінної середовища DOMAIN")
 
+
 # Хендлер для команди /start
 async def start(update, context):
     await update.message.reply_text("воркаю 🥺")
+
 
 # Хендлер для команди /murr
 async def mur_handler(update, context):
@@ -59,11 +61,19 @@ async def mur_handler(update, context):
         count = mur_counts[user_first_name]
         await update.message.reply_text(f"{user_first_name} помурчав 🐾. Всього мурчань: {count}.")
 
+
+# Обробник запитів для UptimeRobot
+async def handle_uptime(request):
+    return web.Response(text="UptimeRobot працює!")
+
+
+# Функція для запуску Telegram бота
 async def run_telegram_bot():
     application = Application.builder().token(TOKEN).build()
+
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("murr", mur_handler))
-    
+
     # Встановлюємо webhook
     webhook_url = f"https://{DOMAIN}/webhook"
     await application.bot.set_webhook(webhook_url)
@@ -71,13 +81,30 @@ async def run_telegram_bot():
 
     # Aiohttp сервер для обробки вебхуків
     app = web.Application()
-    app.router.add_post('/webhook', application.update_queue.put)  # Фікс
-    
+    app.router.add_post('/webhook', application.webhook_handler)
+
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, "0.0.0.0", PORT)
     await site.start()
     logger.info(f"UptimeRobot сервер запущено на порту {PORT}")
+
+
+# Функція для запуску сервера UptimeRobot
+async def run_uptime_robot():
+    app = web.Application()
+    app.router.add_get("/", handle_uptime)
+
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "0.0.0.0", PORT + 1)  # Сервер для UptimeRobot на іншому порту
+    await site.start()
+    logger.info(f"UptimeRobot сервер запущено на порту {PORT + 1}")
+
+    # Утримуємо сервер активним
+    while True:
+        await asyncio.sleep(3600)
+
 
 # Головна функція
 async def main():
@@ -86,7 +113,8 @@ async def main():
         run_uptime_robot()
     )
 
-if __name__ == "__main__":
+
+if name == "__main__":
     try:
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
