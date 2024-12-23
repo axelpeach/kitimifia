@@ -68,6 +68,31 @@ async def mur_handler(update, context):
 async def handle_uptime(request):
     return web.Response(text="UptimeRobot працює!")
 
+async def start(update, context):
+    logger.info("Функція start виконується...")
+    
+    # Логування інформації про користувача
+    if update.message:
+        user = update.message.from_user
+        logger.info(f"Команда /start отримана від {user.first_name} (ID: {user.id})")
+    else:
+        logger.error("update.message відсутній! Завершення виконання функції.")
+        return
+
+    # Логування інформації про чат
+    if update.message.chat:
+        chat = update.message.chat
+        logger.info(f"Чат: {chat.title if chat.title else 'Приватний чат'} (ID: {chat.id})")
+    else:
+        logger.error("update.message.chat відсутній!")
+
+    # Спроба відповісти користувачу
+    try:
+        await update.message.reply_text(f"Привіт, {update.message.from_user.first_name}! Вітаю на борту! 🥳")
+        logger.info("Повідомлення успішно відправлено.")
+    except Exception as e:
+        logger.error(f"Сталася помилка під час відправки повідомлення: {e}")
+
 # Функція для запуску Telegram бота
 async def run_telegram_bot():
     application = Application.builder().token(TOKEN).build()
