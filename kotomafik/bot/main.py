@@ -23,8 +23,17 @@ if not TOKEN:
 if not DOMAIN:
     raise ValueError("Не знайдено змінної середовища DOMAIN")
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("воркаю")
+# Хендлер для команди /start
+async def start(update, context):
+    logger.info(f"Команда /start отримана від {update.message.from_user.first_name}")
+    try:
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="Воркаю"
+        )
+        logger.info("Відповідь на команду /start успішно надіслана.")
+    except Exception as e:
+        logger.error(f"Помилка під час відправки повідомлення: {e}")
 
 # Хендлер для команди /murr
 async def mur_handler(update, context):
@@ -65,9 +74,6 @@ async def mur_handler(update, context):
 # Обробник запитів для UptimeRobot
 async def handle_uptime(request):
     return web.Response(text="UptimeRobot працює!")
-
-async def start(update, context):
-    logger.info("Функція start виконується...")
     
     # Логування інформації про користувача
     if update.message:
@@ -76,13 +82,6 @@ async def start(update, context):
     else:
         logger.error("update.message відсутній! Завершення виконання функції.")
         return
-
-    # Спроба відповісти користувачу
-    try:
-        await update.message.reply_text(f"Привіт, {update.message.from_user.first_name}! Вітаю на борту! 🥳")
-        logger.info("Повідомлення успішно відправлено.")
-    except Exception as e:
-        logger.error(f"Сталася помилка під час відправки повідомлення: {e}")
 
 # Функція для запуску Telegram бота
 async def run_telegram_bot():
