@@ -5,7 +5,7 @@ from collections import defaultdict
 from telegram.ext import Application, CommandHandler
 import asyncio
 
-# Логування
+# Налаштування логування
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -23,11 +23,7 @@ if not TOKEN:
 async def start(update, context):
     user = update.effective_user
     logger.info(f"Команда /start отримана від {user.first_name} (ID: {user.id})")
-    try:
-        await update.message.reply_text("Воркаю")
-        logger.info("Відповідь на команду /start успішно надіслана.")
-    except Exception as e:
-        logger.error(f"Помилка під час відправки повідомлення: {e}")
+    await update.message.reply_text("Воркаю 🐾")
 
 # Хендлер для команди /murr
 async def mur_handler(update, context):
@@ -42,7 +38,6 @@ async def mur_handler(update, context):
         elapsed_time = now - last_mur_time[user_id]
         if elapsed_time < timedelta(minutes=10):
             remaining_time = timedelta(minutes=10) - elapsed_time
-            logger.info(f"{user_first_name} спробував помурчати занадто рано.")
             await update.message.reply_text(
                 f"Твой мурчальнік перегрівся, зачекай {remaining_time.seconds // 60} хвилин та {remaining_time.seconds % 60} секунд."
             )
@@ -76,16 +71,13 @@ async def main():
     application.add_handler(CommandHandler("murr", mur_handler))
 
     logger.info("Запуск бота в режимі полінгу")
-    # Запускаємо polling з коректним закриттям
+    # Запускаємо polling
     try:
-        await application.initialize()
-        await application.start()
-        await application.updater.start_polling()
-        await application.updater.idle()  # Чекаємо зупинки
+        await application.run_polling()  # Це автоматично управляє Updater
+    except Exception as e:
+        logger.error(f"Помилка під час роботи бота: {e}")
     finally:
-        logger.info("Завершення роботи бота...")
-        await application.stop()
-        await application.shutdown()
+        logger.info("Зупинка бота...")
 
 if __name__ == "__main__":
     try:
