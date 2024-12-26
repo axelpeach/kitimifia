@@ -30,7 +30,7 @@ if not TOKEN:
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     logger.info(f"Команда /start отримана від {user.first_name} (ID: {user.id})")
-    await update.message.reply_text("Воркаю 🐾")
+    await update.message.reply_text("воркаю 🐾")
 
 
 # Хендлер для команди /murr
@@ -47,7 +47,7 @@ async def mur_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if elapsed_time < timedelta(minutes=10):
             remaining_time = timedelta(minutes=10) - elapsed_time
             await update.message.reply_text(
-                f"Твой мурчальнік перегрівся, зачекай {remaining_time.seconds // 60} хвилин та {remaining_time.seconds % 60} секунд."
+                f"твій мурчальнік перегрівся, зачекай {remaining_time.seconds // 60} хвилин та {remaining_time.seconds % 60} секунд."
             )
             return
 
