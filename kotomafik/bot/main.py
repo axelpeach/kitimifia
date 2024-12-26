@@ -8,6 +8,7 @@ from telegram.ext import (
     CommandHandler,
     ContextTypes,
 )
+import time
 
 # Налаштування логування
 logging.basicConfig(
@@ -24,7 +25,6 @@ TOKEN = os.getenv("TELEGRAM_TOKEN")
 
 if not TOKEN:
     raise ValueError("Не знайдено змінної середовища TELEGRAM_TOKEN")
-
 
 # Хендлер для команди /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -47,7 +47,7 @@ async def mur_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if elapsed_time < timedelta(minutes=10):
             remaining_time = timedelta(minutes=10) - elapsed_time
             await update.message.reply_text(
-                f"твій мурчальнік перегрівся, зачекай {remaining_time.seconds // 60} хвилин та {remaining_time.seconds % 60} секунд."
+                f"Твой мурчальнік перегрівся, зачекай {remaining_time.seconds // 60} хвилин та {remaining_time.seconds % 60} секунд."
             )
             return
 
@@ -70,19 +70,26 @@ async def mur_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"{user_first_name} помурчав 🐾. Всього мурчань: {count}.")
 
 
-# Основна функція для запуску бота
-def main():
-    # Створюємо об'єкт програми
-    application = Application.builder().token(TOKEN).build()
+# Функція для перезапуску бота в разі помилок
+def run_bot():
+    while True:
+        try:
+            # Створюємо об'єкт програми
+            application = Application.builder().token(TOKEN).build()
 
-    # Додаємо хендлери
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("murr", mur_handler))
+            # Додаємо хендлери
+            application.add_handler(CommandHandler("start", start))
+            application.add_handler(CommandHandler("murr", mur_handler))
 
-    logger.info("Запуск бота в режимі полінгу")
-    # Запускаємо polling
-    application.run_polling()
+            logger.info("Запуск бота в режимі полінгу")
+            # Запускаємо polling
+            application.run_polling()
 
+        except Exception as e:
+            logger.error(f"Помилка при запуску бота: {e}")
+            # Затримка перед перезапуском
+            logger.info("Чекаємо 5 секунд перед перезапуском...")
+            time.sleep(5)
 
 if __name__ == "__main__":
-    main()
+    run_bot()
