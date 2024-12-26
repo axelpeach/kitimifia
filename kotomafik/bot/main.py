@@ -1,9 +1,9 @@
 import os
 import logging
-import asyncio
 from datetime import datetime, timedelta
 from collections import defaultdict
 from telegram.ext import Application, CommandHandler
+import asyncio
 
 # Логування
 logging.basicConfig(level=logging.INFO)
@@ -68,6 +68,7 @@ async def mur_handler(update, context):
 
 # Основна функція для запуску бота
 async def main():
+    # Створюємо об'єкт програми
     application = Application.builder().token(TOKEN).build()
 
     # Додаємо хендлери
@@ -75,7 +76,16 @@ async def main():
     application.add_handler(CommandHandler("murr", mur_handler))
 
     logger.info("Запуск бота в режимі полінгу")
-    await application.run_polling()
+    # Запускаємо polling з коректним закриттям
+    try:
+        await application.initialize()
+        await application.start()
+        await application.updater.start_polling()
+        await application.updater.idle()  # Чекаємо зупинки
+    finally:
+        logger.info("Завершення роботи бота...")
+        await application.stop()
+        await application.shutdown()
 
 if __name__ == "__main__":
     try:
