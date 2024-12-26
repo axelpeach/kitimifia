@@ -2,11 +2,17 @@ import os
 import logging
 from datetime import datetime, timedelta
 from collections import defaultdict
-from telegram.ext import Application, CommandHandler
-import asyncio
+from telegram import Update
+from telegram.ext import (
+    Application,
+    CommandHandler,
+    ContextTypes,
+)
 
 # Налаштування логування
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+)
 logger = logging.getLogger(__name__)
 
 # Лічильники мурчань
@@ -19,14 +25,16 @@ TOKEN = os.getenv("TELEGRAM_TOKEN")
 if not TOKEN:
     raise ValueError("Не знайдено змінної середовища TELEGRAM_TOKEN")
 
+
 # Хендлер для команди /start
-async def start(update, context):
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     logger.info(f"Команда /start отримана від {user.first_name} (ID: {user.id})")
     await update.message.reply_text("Воркаю 🐾")
 
+
 # Хендлер для команди /murr
-async def mur_handler(update, context):
+async def mur_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     user_first_name = update.effective_user.first_name
     now = datetime.now()
@@ -61,8 +69,9 @@ async def mur_handler(update, context):
         count = mur_counts[user_first_name]
         await update.message.reply_text(f"{user_first_name} помурчав 🐾. Всього мурчань: {count}.")
 
+
 # Основна функція для запуску бота
-async def main():
+def main():
     # Створюємо об'єкт програми
     application = Application.builder().token(TOKEN).build()
 
@@ -72,15 +81,8 @@ async def main():
 
     logger.info("Запуск бота в режимі полінгу")
     # Запускаємо polling
-    try:
-        await application.run_polling()  # Це автоматично управляє Updater
-    except Exception as e:
-        logger.error(f"Помилка під час роботи бота: {e}")
-    finally:
-        logger.info("Зупинка бота...")
+    application.run_polling()
+
 
 if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except (KeyboardInterrupt, SystemExit):
-        logger.info("Бот зупинено.")
+    main()
