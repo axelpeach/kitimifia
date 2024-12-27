@@ -8,6 +8,7 @@ from telegram.ext import (
     CommandHandler,
     ContextTypes,
 )
+import asyncio
 import time
 
 # Налаштування логування
@@ -30,7 +31,7 @@ if not TOKEN:
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     logger.info(f"Команда /start отримана від {user.first_name} (ID: {user.id})")
-    await update.message.reply_text("воркаю 🐾")
+    await update.message.reply_text("Воркаю 🐾")
 
 
 # Хендлер для команди /murr
@@ -70,20 +71,26 @@ async def mur_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"{user_first_name} помурчав 🐾. Всього мурчань: {count}.")
 
 
-# Функція для перезапуску бота в разі помилок
-def run_bot():
+# Функція для запуску бота
+async def run_bot():
+    application = Application.builder().token(TOKEN).build()
+
+    # Додаємо хендлери
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("murr", mur_handler))
+
+    logger.info("Запуск бота в режимі полінгу")
+    await application.run_polling()
+
+
+# Функція для перезапуску циклу подій
+def start_bot():
     while True:
         try:
-            # Створюємо об'єкт програми
-            application = Application.builder().token(TOKEN).build()
-
-            # Додаємо хендлери
-            application.add_handler(CommandHandler("start", start))
-            application.add_handler(CommandHandler("murr", mur_handler))
-
-            logger.info("Запуск бота в режимі полінгу")
-            # Запускаємо polling
-            application.run_polling()
+            # Створюємо новий цикл подій
+            asyncio.set_event_loop(asyncio.new_event_loop())
+            loop = asyncio.get_event_loop()
+            loop.run_until_complete(run_bot())
 
         except Exception as e:
             logger.error(f"Помилка при запуску бота: {e}")
@@ -91,5 +98,6 @@ def run_bot():
             logger.info("Чекаємо 5 секунд перед перезапуском...")
             time.sleep(5)
 
+
 if __name__ == "__main__":
-    run_bot()
+    start_bot()
