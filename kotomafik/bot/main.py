@@ -5,6 +5,9 @@ from collections import defaultdict
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 import asyncio
+from fastapi import FastAPI
+from fastapi.responses import JSONResponse
+import uvicorn
 
 # Налаштування логування
 logging.basicConfig(
@@ -22,6 +25,8 @@ TOKEN = os.getenv("TELEGRAM_TOKEN")
 if not TOKEN:
     raise ValueError("Не знайдено змінної середовища TELEGRAM_TOKEN")
 
+# Ініціалізація FastAPI для UptimeRobot
+app = FastAPI()
 
 # Хендлер для команди /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -75,29 +80,34 @@ async def run_bot():
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("murr", mur_handler))
 
-    try:
-        logger.info("Запуск бота в режимі полінгу")
-        await application.run_polling()
-    except Exception as e:
-        logger.error(f"Помилка при роботі бота: {e}")
-    finally:
-        await application.shutdown()  # Коректно завершуємо роботу
+    logger.info("Запуск бота в режимі полінгу")
+    await application.run_polling()
 
 
-# Функція для запуску циклу
-def start_bot():
+# Функція для перезапуску
+async def restart_bot():
     while True:
         try:
-            asyncio.run(run_bot())
-        except RuntimeError as e:
-            logger.warning(f"RuntimeError: {e}")
-            asyncio.set_event_loop(asyncio.new_event_loop())  # Встановлюємо новий цикл подій
+            await run_bot()
         except Exception as e:
-            logger.error(f"Непередбачена помилка: {e}")
-        finally:
+            logger.error(f"Помилка при роботі бота: {e}")
             logger.info("Чекаємо 5 секунд перед перезапуском...")
-            asyncio.sleep(5)
+            await asyncio.sleep(5)  # Асинхронний sleep для затримки перед перезапуском
+
+
+# Шлях для перевірки роботи (UptimeRobot)
+@app.get("/")
+async def uptime_check():
+    return JSONResponse(content={"status": "ok"}, status_code=200)
+
+
+# Запуск FastAPI та бота
+def start_server():
+    # Запускаємо FastAPI у фоновому потоці
+    asyncio.create_task(uvicorn.run(app, host="0.0.0.0", port=8000))
+    # Запускаємо основний цикл бота
+    asyncio.run(restart_bot())
 
 
 if __name__ == "__main__":
-    start_bot()
+    start_server()
