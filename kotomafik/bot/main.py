@@ -27,6 +27,7 @@ TOKEN = os.getenv("TELEGRAM_TOKEN")
 if not TOKEN:
     raise ValueError("Не знайдено змінної середовища TELEGRAM_TOKEN")
 
+
 # Хендлер для команди /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
@@ -88,13 +89,12 @@ def start_bot():
     while True:
         try:
             # Створюємо новий цикл подій
-            asyncio.set_event_loop(asyncio.new_event_loop())
-            loop = asyncio.get_event_loop()
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
             loop.run_until_complete(run_bot())
-
         except Exception as e:
             logger.error(f"Помилка при запуску бота: {e}")
-            # Затримка перед перезапуском
+        finally:
             logger.info("Чекаємо 5 секунд перед перезапуском...")
             time.sleep(5)
 
