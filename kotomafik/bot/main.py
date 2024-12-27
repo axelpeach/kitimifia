@@ -84,16 +84,21 @@ async def run_bot():
     await application.run_polling()
 
 
-# Функція для перезапуску циклу подій
+# Основний цикл запуску
 def start_bot():
     while True:
         try:
-            # Створюємо новий цикл подій
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            loop.run_until_complete(run_bot())
+            logger.info("Запуск бота в режимі полінгу")
+            asyncio.run(run_bot())
+        except RuntimeError as e:
+            if "This event loop is already running" in str(e):
+                logger.warning("Активний цикл подій уже працює, використовую поточний цикл.")
+                loop = asyncio.get_event_loop()
+                loop.run_until_complete(run_bot())
+            else:
+                logger.error(f"Помилка при запуску бота: {e}")
         except Exception as e:
-            logger.error(f"Помилка при запуску бота: {e}")
+            logger.error(f"Непередбачена помилка: {e}")
         finally:
             logger.info("Чекаємо 5 секунд перед перезапуском...")
             time.sleep(5)
