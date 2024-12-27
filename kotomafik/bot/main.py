@@ -3,13 +3,8 @@ import logging
 from datetime import datetime, timedelta
 from collections import defaultdict
 from telegram import Update
-from telegram.ext import (
-    Application,
-    CommandHandler,
-    ContextTypes,
-)
+from telegram.ext import Application, CommandHandler, ContextTypes
 import asyncio
-import time
 
 # Налаштування логування
 logging.basicConfig(
@@ -72,7 +67,7 @@ async def mur_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"{user_first_name} помурчав 🐾. Всього мурчань: {count}.")
 
 
-# Функція для запуску бота
+# Основна функція для запуску бота
 async def run_bot():
     application = Application.builder().token(TOKEN).build()
 
@@ -80,28 +75,28 @@ async def run_bot():
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("murr", mur_handler))
 
-    logger.info("Запуск бота в режимі полінгу")
-    await application.run_polling()
+    try:
+        logger.info("Запуск бота в режимі полінгу")
+        await application.run_polling()
+    except Exception as e:
+        logger.error(f"Помилка при роботі бота: {e}")
+    finally:
+        await application.shutdown()  # Коректно завершуємо роботу
 
 
-# Основний цикл запуску
+# Функція для запуску циклу
 def start_bot():
     while True:
         try:
-            logger.info("Запуск бота в режимі полінгу")
             asyncio.run(run_bot())
         except RuntimeError as e:
-            if "This event loop is already running" in str(e):
-                logger.warning("Активний цикл подій уже працює, використовую поточний цикл.")
-                loop = asyncio.get_event_loop()
-                loop.run_until_complete(run_bot())
-            else:
-                logger.error(f"Помилка при запуску бота: {e}")
+            logger.warning(f"RuntimeError: {e}")
+            asyncio.set_event_loop(asyncio.new_event_loop())  # Встановлюємо новий цикл подій
         except Exception as e:
             logger.error(f"Непередбачена помилка: {e}")
         finally:
             logger.info("Чекаємо 5 секунд перед перезапуском...")
-            time.sleep(5)
+            asyncio.sleep(5)
 
 
 if __name__ == "__main__":
