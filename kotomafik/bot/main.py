@@ -66,13 +66,13 @@ async def mur_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"{user_first_name} помурчав 🐾. Всього мурчань: {count}.")
 
 # Telegram бот
-async def run_bot():
+def run_bot():
     application = Application.builder().token(TOKEN).build()
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("murr", mur_handler))
 
     logger.info("Запуск бота в режимі полінгу")
-    await application.run_polling()
+    application.run_polling()
 
 # FastAPI сервер
 app = FastAPI()
@@ -92,7 +92,9 @@ def main():
     fastapi_thread.start()
 
     # Telegram бот працює в основному потоці
-    asyncio.run(run_bot())
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.run_in_executor(None, run_bot)
 
 if __name__ == "__main__":
     main()
