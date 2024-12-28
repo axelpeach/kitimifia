@@ -2,7 +2,7 @@ import os
 import sys
 import logging
 from datetime import datetime, timedelta
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from telegram.ext import Application, CommandHandler
 import uvicorn
 import asyncio
@@ -23,6 +23,17 @@ app = FastAPI()
 async def root():
     return {"message": "Бот працює!"}
 
+@app.head("/")
+async def head_root():
+    return {"message": "OK"}
+
+@app.post("/webhook")
+async def webhook(request: Request):
+    payload = await request.json()
+    logger.info(f"Webhook отримано: {payload}")
+    # Ваш код для обробки повідомлень від Telegram
+    return {"status": "ok"}
+
 # Лічильники мурчань і час останнього мурчання
 mur_counts = {}
 last_mur_time = {}
@@ -31,17 +42,16 @@ last_mur_time = {}
 async def start(update, context):
     user = update.effective_user
     await update.message.reply_text(
-        f"Привіт, {user_first}! 🐾\n"
-        "воркаю. Введіть /help, щоб побачити список доступних команд."
+        f"Привіт, {user.first_name}! 🐾\n"
+        "Я ваш помічник. Введіть /help, щоб побачити список доступних команд."
     )
 
 # Хендлер для команди /help
 async def help_command(update, context):
     commands = (
-        "це список актуальних і не дуже команд.\n"
-        "/start - перевірка роботи та просто старт.\n"
-        "/help - хелб.\n"
-        "/murr - Помурчати 🐾 \n"
+        "/start - Почати спілкування з ботом.\n"
+        "/help - Показати список команд і їх функціонал.\n"
+        "/murr - Помурчати 🐾 (раз на 10 хвилин).\n"
         "/set_murr [число] - Встановити кількість мурчань.\n"
         "/status - Перевірити стан бота."
     )
@@ -60,7 +70,7 @@ async def murr(update, context):
             remaining_time = timedelta(minutes=10) - elapsed_time
             minutes, seconds = divmod(remaining_time.seconds, 60)
             await update.message.reply_text(
-                f"{user_name} твій мурчальник перегрівся 🐾!\n  почекай ще {minutes} хвилин та {seconds} секунд."
+                f"Ваш мурчальник перегрівся 🐾! Спробуйте знову через {minutes} хвилин та {seconds} секунд."
             )
             return
 
@@ -69,7 +79,7 @@ async def murr(update, context):
 
     # Оновлення лічильника мурчань
     mur_counts[user_id] = mur_counts.get(user_id, 0) + 1
-    await update.message.reply_text(f"{user_name} помурчав 🐾!\n Всього мурчань: {mur_counts[user_id]}.")
+    await update.message.reply_text(f"{user_name} помурчав 🐾! Всього мурчань: {mur_counts[user_id]}.")
 
 # Хендлер для команди /set_murr
 async def set_murr(update, context):
@@ -78,9 +88,9 @@ async def set_murr(update, context):
 
     if context.args and context.args[0].isdigit():
         mur_counts[user_id] = int(context.args[0])
-        await update.message.reply_text(f"{user_first}, тепер ви помурчали разів: {mur_counts[user_id]}.")
+        await update.message.reply_text(f"{user_name}, тепер кількість мурчань: {mur_counts[user_id]}.")
     else:
-        await update.message.reply_text("Будь ласка, введіть коректне число.\n Наприклад: /set_murr 10")
+        await update.message.reply_text("Будь ласка, введіть коректне число. Наприклад: /set_murr 10")
 
 # Хендлер для команди /status
 async def status(update, context):
@@ -125,7 +135,8 @@ def main():
         logger.error(f"Помилка: {e}")
 
     finally:
-        if os.path.exists(PID_FILE):os.remove(PID_FILE)
+        if os.path.exists(PID_FILE):
+            os.remove(PID_FILE)
 
 if __name__ == "__main__":
     main()
