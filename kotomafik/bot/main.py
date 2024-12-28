@@ -20,6 +20,9 @@ PID_FILE = "bot.pid"
 # Створюємо FastAPI додаток
 app = FastAPI()
 
+# Створення екземпляра Telegram Application
+application = None
+
 @app.get("/")
 async def root():
     return {"message": "Бот працює!"}
@@ -103,6 +106,7 @@ async def status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 # Функція для запуску Telegram бота
 async def start_telegram_bot():
+    global application  # Оголошуємо змінну глобально
     token = os.getenv("TELEGRAM_TOKEN")
     if not token:
         logger.error("Не вказано TELEGRAM_TOKEN у змінних середовища!")
@@ -116,7 +120,7 @@ async def start_telegram_bot():
     application.add_handler(CommandHandler("murr", murr))
     application.add_handler(CommandHandler("set_murr", set_murr))
     application.add_handler(CommandHandler("status", status))
-   
+
     logger.info("Запуск бота в режимі полінгу")
     await application.run_polling()
 
