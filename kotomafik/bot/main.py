@@ -92,24 +92,18 @@ def create_application():
     return application
 
 # Основна функція запуску бота
-async def main():
+async def run_bot():
     application = create_application()
     logger.info("Запуск бота через полінг")
     try:
-        # Ініціалізація та запуск
         await application.initialize()
         await application.start()
         await application.run_polling()
-    except Exception as e:
-        logger.error(f"Помилка під час роботи бота: {e}")
     finally:
-        # Коректне завершення роботи
         await application.stop()
         await application.shutdown()
         logger.info("Бот завершив роботу.")
 
 if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except RuntimeError as e:
-        logger.error(f"Помилка виконання програми: {e}")
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(run_bot())
