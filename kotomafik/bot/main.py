@@ -2,7 +2,7 @@ import os
 import sys
 import logging
 from datetime import datetime, timedelta
-from fastapi import FastAPI, Request, Depends
+from fastapi import FastAPI, Request, Depends, HTTPException
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 import uvicorn
@@ -34,6 +34,9 @@ async def head_root():
 # Вебхук для отримання оновлень
 @app.post("/webhook")
 async def webhook(request: Request, app: Application = Depends(lambda: application)):
+    if not app:
+        raise HTTPException(status_code=500, detail="Telegram bot is not initialized")
+    
     payload = await request.json()
     logger.info(f"Webhook отримано: {payload}")
     
@@ -113,9 +116,7 @@ async def start_telegram_bot():
         logger.error("Не вказано TELEGRAM_TOKEN у змінних середовища!")
         return
 
-    application = Application.builder().token(token).build()
-
-    # Додаємо хендлери команд
+    application = Application.builder().token(token).build()# Додаємо хендлери команд
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("murr", murr))
