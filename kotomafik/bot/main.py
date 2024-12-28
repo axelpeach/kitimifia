@@ -125,9 +125,14 @@ def main():
         f.write(str(os.getpid()))
 
     try:
-        # Запускаємо FastAPI сервер і Telegram бота
-        loop = asyncio.get_event_loop()
-        loop.create_task(start_telegram_bot())
+        # Перевіряємо наявність поточного event loop
+        if not asyncio.get_event_loop().is_running():
+            loop = asyncio.get_event_loop()
+            loop.create_task(start_telegram_bot())
+        else:
+            logger.warning("Event loop вже запущено.")
+
+        # Запускаємо FastAPI сервер
         logger.info("Запуск FastAPI сервера")
         uvicorn.run(app, host="0.0.0.0", port=8080)
 
