@@ -95,7 +95,17 @@ def create_application():
 async def main():
     application = create_application()
     logger.info("Запуск бота через полінг")
-    await application.run_polling()
+
+    try:
+        # Ініціалізація
+        await application.initialize()
+
+        # Запуск полінгу
+        await application.start()
+        await application.run_polling()
+    finally:
+        # Коректне завершення роботи
+        await application.shutdown()
 
 if __name__ == "__main__":
     asyncio.run(main())
