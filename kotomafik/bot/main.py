@@ -1,6 +1,7 @@
 import os
 import sys
 import logging
+from datetime import datetime, timedelta
 from fastapi import FastAPI
 from telegram.ext import Application, CommandHandler
 import uvicorn
@@ -22,7 +23,7 @@ app = FastAPI()
 async def root():
     return {"message": "Бот працює!"}
 
-# Лічильники мурчань
+# Лічильники мурчань і час останнього мурчання
 mur_counts = {}
 last_mur_time = {}
 
@@ -30,16 +31,17 @@ last_mur_time = {}
 async def start(update, context):
     user = update.effective_user
     await update.message.reply_text(
-        f"Привіт, {user.first_name}! 🐾\n"
-        "Я ваш помічник. Введіть /help, щоб побачити список доступних команд."
+        f"Привіт, {user_first}! 🐾\n"
+        "воркаю. Введіть /help, щоб побачити список доступних команд."
     )
 
 # Хендлер для команди /help
 async def help_command(update, context):
     commands = (
-        "/start - Почати спілкування з ботом.\n"
-        "/help - Показати список команд і їх функціонал.\n"
-        "/murr - Помурчати 🐾.\n"
+        "це список актуальних і не дуже команд.\n"
+        "/start - перевірка роботи та просто старт.\n"
+        "/help - хелб.\n"
+        "/murr - Помурчати 🐾 \n"
         "/set_murr [число] - Встановити кількість мурчань.\n"
         "/status - Перевірити стан бота."
     )
@@ -49,10 +51,25 @@ async def help_command(update, context):
 async def murr(update, context):
     user_id = update.effective_user.id
     user_name = update.effective_user.first_name
+    now = datetime.now()
+
+    # Перевірка на обмеження часу
+    if user_id in last_mur_time:
+        elapsed_time = now - last_mur_time[user_id]
+        if elapsed_time < timedelta(minutes=10):
+            remaining_time = timedelta(minutes=10) - elapsed_time
+            minutes, seconds = divmod(remaining_time.seconds, 60)
+            await update.message.reply_text(
+                f"{user_name} твій мурчальник перегрівся 🐾!\n  почекай ще {minutes} хвилин та {seconds} секунд."
+            )
+            return
+
+    # Оновлюємо час останнього мурчання
+    last_mur_time[user_id] = now
 
     # Оновлення лічильника мурчань
     mur_counts[user_id] = mur_counts.get(user_id, 0) + 1
-    await update.message.reply_text(f"{user_name} помурчав 🐾! Всього мурчань: {mur_counts[user_id]}.")
+    await update.message.reply_text(f"{user_name} помурчав 🐾!\n Всього мурчань: {mur_counts[user_id]}.")
 
 # Хендлер для команди /set_murr
 async def set_murr(update, context):
@@ -61,9 +78,9 @@ async def set_murr(update, context):
 
     if context.args and context.args[0].isdigit():
         mur_counts[user_id] = int(context.args[0])
-        await update.message.reply_text(f"{user_name}, тепер кількість мурчань: {mur_counts[user_id]}.")
+        await update.message.reply_text(f"{user_first}, тепер ви помурчали разів: {mur_counts[user_id]}.")
     else:
-        await update.message.reply_text("Будь ласка, введіть коректне число. Наприклад: /set_murr 10")
+        await update.message.reply_text("Будь ласка, введіть коректне число.\n Наприклад: /set_murr 10")
 
 # Хендлер для команди /status
 async def status(update, context):
@@ -108,8 +125,7 @@ def main():
         logger.error(f"Помилка: {e}")
 
     finally:
-        if os.path.exists(PID_FILE):
-            os.remove(PID_FILE)
+        if os.path.exists(PID_FILE):os.remove(PID_FILE)
 
 if __name__ == "__main__":
     main()
