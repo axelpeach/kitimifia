@@ -2,7 +2,7 @@ import os
 import sys
 import logging
 from datetime import datetime, timedelta
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Depends
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 import uvicorn
@@ -21,7 +21,7 @@ PID_FILE = "bot.pid"
 app = FastAPI()
 
 # Створення екземпляра Telegram Application
-application = None
+application: Application = None
 
 @app.get("/")
 async def root():
@@ -31,14 +31,15 @@ async def root():
 async def head_root():
     return {"message": "OK"}
 
+# Вебхук для отримання оновлень
 @app.post("/webhook")
-async def webhook(request: Request):
+async def webhook(request: Request, app: Application = Depends(lambda: application)):
     payload = await request.json()
     logger.info(f"Webhook отримано: {payload}")
     
     # Отримуємо повідомлення та обробляємо його
-    update = Update.de_json(payload, application)
-    await application.process_update(update)
+    update = Update.de_json(payload, app)
+    await app.process_update(update)
     
     return {"status": "ok"}
 
