@@ -83,7 +83,7 @@ def health_check():
 
 def start_fastapi():
     logger.info("Запуск FastAPI сервера")
-    uvicorn.run(app, host="0.0.0.0", port=8080)
+    uvicorn.run(app, host="0.0.0.0", port=8080, log_level="info")
 
 # Основна функція
 def main():
@@ -91,7 +91,7 @@ def main():
     fastapi_thread = Thread(target=start_fastapi, daemon=True)
     fastapi_thread.start()
 
-    # Запускаємо Telegram бота
+    # Telegram бот працює в основному потоці
     asyncio.run(run_bot())
 
 if __name__ == "__main__":
