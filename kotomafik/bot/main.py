@@ -4,15 +4,13 @@ from datetime import datetime, timedelta
 from collections import defaultdict
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
-import asyncio
 from fastapi import FastAPI
-from fastapi.responses import JSONResponse
+from threading import Thread
 import uvicorn
+import asyncio
 
 # Налаштування логування
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
-)
+logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Лічильники мурчань
@@ -25,15 +23,11 @@ TOKEN = os.getenv("TELEGRAM_TOKEN")
 if not TOKEN:
     raise ValueError("Не знайдено змінної середовища TELEGRAM_TOKEN")
 
-# Ініціалізація FastAPI для UptimeRobot
-app = FastAPI()
-
 # Хендлер для команди /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     logger.info(f"Команда /start отримана від {user.first_name} (ID: {user.id})")
     await update.message.reply_text("Воркаю 🐾")
-
 
 # Хендлер для команди /murr
 async def mur_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -71,43 +65,34 @@ async def mur_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         count = mur_counts[user_first_name]
         await update.message.reply_text(f"{user_first_name} помурчав 🐾. Всього мурчань: {count}.")
 
-
-# Основна функція для запуску бота
+# Telegram бот
 async def run_bot():
     application = Application.builder().token(TOKEN).build()
-
-    # Додаємо хендлери
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("murr", mur_handler))
 
     logger.info("Запуск бота в режимі полінгу")
     await application.run_polling()
 
+# FastAPI сервер
+app = FastAPI()
 
-# Функція для перезапуску
-async def restart_bot():
-    while True:
-        try:
-            await run_bot()
-        except Exception as e:
-            logger.error(f"Помилка при роботі бота: {e}")
-            logger.info("Чекаємо 5 секунд перед перезапуском...")
-            await asyncio.sleep(5)  # Асинхронний sleep для затримки перед перезапуском
+@app.get("/health")
+def health_check():
+    return {"status": "Bot is running"}
 
+def start_fastapi():
+    logger.info("Запуск FastAPI сервера")
+    uvicorn.run(app, host="0.0.0.0", port=8080)
 
-# Шлях для перевірки роботи (UptimeRobot)
-@app.get("/")
-async def uptime_check():
-    return JSONResponse(content={"status": "ok"}, status_code=200)
+# Основна функція
+def main():
+    # Запускаємо FastAPI сервер у окремому потоці
+    fastapi_thread = Thread(target=start_fastapi, daemon=True)
+    fastapi_thread.start()
 
-
-# Запуск FastAPI та бота
-def start_server():
-    # Запускаємо FastAPI у фоновому потоці
-    asyncio.create_task(uvicorn.run(app, host="0.0.0.0", port=8000))
-    # Запускаємо основний цикл бота
-    asyncio.run(restart_bot())
-
+    # Запускаємо Telegram бота
+    asyncio.run(run_bot())
 
 if __name__ == "__main__":
-    start_server()
+    main()
