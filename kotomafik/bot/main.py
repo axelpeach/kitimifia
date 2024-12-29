@@ -20,6 +20,9 @@ logger = logging.getLogger(__name__)
 mur_counts = {}
 last_mur_time = {}
 
+usik_lengths = {}
+last_usik_time = {}
+
 async def usik(update, context):
     user_id = update.effective_user.id
     user_name = update.effective_user.first_name
