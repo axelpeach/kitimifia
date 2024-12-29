@@ -2,7 +2,10 @@ import os
 import logging
 from telegram.ext import Application, CommandHandler
 from datetime import datetime, timedelta
-import asyncio
+import nest_asyncio
+
+# Патч для асинхронного циклу (усуває проблему "RuntimeError: Cannot close a running event loop")
+nest_asyncio.apply()
 
 # Налаштування логування
 logging.basicConfig(
@@ -92,22 +95,16 @@ def create_application():
     return application
 
 # Основна функція запуску бота
-async def run_bot():
+async def main():
     application = create_application()
-    logger.info("Запуск бота через полінг")
-    await application.initialize()
-    await application.start()
-    await application.run_polling()
+    try:
+        logger.info("Запуск бота через полінг")
+        await application.run_polling()
+    except Exception as e:
+        logger.error(f"Помилка під час роботи бота: {e}")
+    finally:
+        logger.info("Бот завершив роботу.")
 
 if __name__ == "__main__":
-    # Запуск у середовищі з активним циклом подій
-    try:
-        asyncio.run(run_bot())
-    except RuntimeError as e:
-        if "This event loop is already running" in str(e):
-            logger.warning("Цикл подій вже активний. Використовуємо альтернативний підхід.")
-            import nest_asyncio
-            nest_asyncio.apply()
-            asyncio.get_event_loop().run_until_complete(run_bot())
-        else:
-            raise
+    import asyncio
+    asyncio.run(main())
