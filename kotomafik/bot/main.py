@@ -12,17 +12,19 @@ nest_asyncio.apply()
 # Налаштування логування
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    level=logging.INFO
+    level=logging.INFO,
 )
 logger = logging.getLogger(__name__)
 
-# Лічильники мурчань, довжина вусів і часи останньої дії
+# Лічильники мурчань і час останнього мурчання
 mur_counts = {}
 last_mur_time = {}
+
+# Дані для вусів
 usik_lengths = {}
 last_usik_time = {}
 
-
+# Команда /usik
 async def usik(update, context):
     user_id = update.effective_user.id
     user_name = update.effective_user.first_name
@@ -35,8 +37,7 @@ async def usik(update, context):
             remaining_time = timedelta(minutes=20) - elapsed_time
             minutes, seconds = divmod(remaining_time.seconds, 60)
             await update.message.reply_text(
-                f"Не все одразу! 🐾\n"
-                f"Спробуйте знову через {minutes} хвилин та {seconds} секунд."
+                f"Не все одразу 🐾\nСпробуй через {minutes} хвилин та {seconds} секунд."
             )
             return
 
@@ -57,27 +58,26 @@ async def usik(update, context):
         f"Загальна довжина: {usik_lengths[user_id]:.2f} мм."
     )
 
-
+# Команда /start
 async def start(update, context):
     user = update.effective_user
     await update.message.reply_text(
-        f"Привіт, {user.first_name}! 🐾\n"
-        "Тикни лапкою /help, щоб побачити список доступних команд."
+        f"Привіт, {user.first_name} 🐾\nТикни лапкою /help, щоб побачити список доступних команд."
     )
 
-
+# Команда /help
 async def help_command(update, context):
     commands = (
-        "/start - Почати роботу з ботом.\n"
+        "/start - Почати спілкування з ботом.\n"
         "/help - Показати список команд.\n"
         "/murr - Помурчати.\n"
         "/set_murr [число] - Встановити кількість мурчань.\n"
-        "/about - Про бота.\n"
+        "/about - Інформація про бота.\n"
         "/usik - Виростити котячі вуса."
     )
     await update.message.reply_text(f"Доступні команди:\n{commands}")
 
-
+# Команда /murr
 async def murr(update, context):
     user_id = update.effective_user.id
     user_name = update.effective_user.first_name
@@ -90,8 +90,7 @@ async def murr(update, context):
             remaining_time = timedelta(minutes=10) - elapsed_time
             minutes, seconds = divmod(remaining_time.seconds, 60)
             await update.message.reply_text(
-                f"Твій мурчальник перегрівся! 🐾\n"
-                f"Спробуйте знову через {minutes} хвилин та {seconds} секунд."
+                f"Твій мурчальник перегрівся 🐾\nСпробуй знову через {minutes} хвилин та {seconds} секунд."
             )
             return
 
@@ -100,29 +99,33 @@ async def murr(update, context):
 
     # Оновлення лічильника мурчань
     mur_counts[user_id] = mur_counts.get(user_id, 0) + 1
-    await update.message.reply_text(f"{user_name} помурчав! 🐾\nВсього мурчань: {mur_counts[user_id]}.")
+    await update.message.reply_text(f"{user_name} помурчав 🐾\nВсього мурчань: {mur_counts[user_id]}.")
 
-
+# Команда /set_murr
 async def set_murr(update, context):
     user_id = update.effective_user.id
     user_name = update.effective_user.first_name
 
     if context.args and context.args[0].isdigit():
         mur_counts[user_id] = int(context.args[0])
-        await update.message.reply_text(f"{user_name}, тепер кількість мурчань: {mur_counts[user_id]}.")
+        await update.message.reply_text(
+            f"{user_name}, тепер кількість мурчань: {mur_counts[user_id]}."
+        )
     else:
-        await update.message.reply_text("Будь ласка, введіть коректне число. Наприклад: /set_murr 10")
+        await update.message.reply_text(
+            "Будь ласка, введіть коректне число. Наприклад: /set_murr 10"
+        )
 
-
-async def status(update, context):
-    await update.message.reply_text("Бот працює! 🐾")
-
+# Команда /about
+async def about(update, context):
+    await update.message.reply_text("Це бот, який допомагає котам мурчати та ростити вуса 🐾.")
 
 # Функція створення Telegram Application
 def create_application():
     token = os.getenv("TELEGRAM_TOKEN")
-    if not token:logger.error("Не вказано TELEGRAM_TOKEN у змінних середовища!")
-    exit(1)
+    if not token:
+        logger.error("Не вказано TELEGRAM_TOKEN у змінних середовища!")
+        exit(1)
 
     application = Application.builder().token(token).build()
 
@@ -131,23 +134,21 @@ def create_application():
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("murr", murr))
     application.add_handler(CommandHandler("set_murr", set_murr))
-    application.add_handler(CommandHandler("about", status))
+    application.add_handler(CommandHandler("about", about))
     application.add_handler(CommandHandler("usik", usik))
 
     return application
 
-
 # Основна функція запуску бота
 def main():
-    application = create_application()
     try:
+        application = create_application()
         logger.info("Запуск бота через полінг")
-        application.run_polling()
+        asyncio.run(application.run_polling())
     except Exception as e:
-        logger.error(f"Помилка під час роботи бота: {e}")
+        logger.error(f"Помилка під час роботи бота: {e}", exc_info=True)
     finally:
         logger.info("Бот завершив роботу.")
-
 
 if __name__ == "__main__":
     main()
