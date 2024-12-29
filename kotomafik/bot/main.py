@@ -97,19 +97,17 @@ async def run_bot():
     logger.info("Запуск бота через полінг")
     await application.initialize()
     await application.start()
-    try:
-        await application.run_polling()
-    except asyncio.CancelledError:
-        logger.info("Зупинка полінгу")
-    finally:
-        await application.stop()
-        await application.shutdown()
-        logger.info("Бот завершив роботу.")
+    await application.run_polling()
 
 if __name__ == "__main__":
-    # Отримуємо поточний цикл подій (підтримка середовищ із активним циклом)
-    loop = asyncio.get_event_loop()
+    # Запуск у середовищі з активним циклом подій
     try:
-        loop.run_until_complete(run_bot())
-    except (KeyboardInterrupt, SystemExit):
-        logger.info("Роботу бота перервано вручну.")
+        asyncio.run(run_bot())
+    except RuntimeError as e:
+        if "This event loop is already running" in str(e):
+            logger.warning("Цикл подій вже активний. Використовуємо альтернативний підхід.")
+            import nest_asyncio
+            nest_asyncio.apply()
+            asyncio.get_event_loop().run_until_complete(run_bot())
+        else:
+            raise
