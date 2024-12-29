@@ -4,3 +4,4 @@ asyncio
 fastapi
 uvicorn
 nest_asyncio
+flask
