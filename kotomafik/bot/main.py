@@ -95,15 +95,21 @@ def create_application():
 async def run_bot():
     application = create_application()
     logger.info("Запуск бота через полінг")
+    await application.initialize()
+    await application.start()
     try:
-        await application.initialize()
-        await application.start()
         await application.run_polling()
+    except asyncio.CancelledError:
+        logger.info("Зупинка полінгу")
     finally:
         await application.stop()
         await application.shutdown()
         logger.info("Бот завершив роботу.")
 
 if __name__ == "__main__":
+    # Отримуємо поточний цикл подій (підтримка середовищ із активним циклом)
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(run_bot())
+    try:
+        loop.run_until_complete(run_bot())
+    except (KeyboardInterrupt, SystemExit):
+        logger.info("Роботу бота перервано вручну.")
