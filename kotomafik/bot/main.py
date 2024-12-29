@@ -22,18 +22,19 @@ last_mur_time = {}
 async def start(update, context):
     user = update.effective_user
     await update.message.reply_text(
-        f"Привіт, {user.first_name}! 🐾\n"
-        "Я ваш помічник. Введіть /help, щоб побачити список доступних команд."
+        f"привіт, {user.first_name} 🐾\n"
+        "натисни /help, щоб побачити список доступних команд."
     )
 
 # Хендлер для команди /help
 async def help_command(update, context):
     commands = (
-        "/start - Почати спілкування з ботом.\n"
-        "/help - Показати список команд і їх функціонал.\n"
-        "/murr - Помурчати 🐾 (раз на 10 хвилин).\n"
+        "/start - не більше ніж старт \n"
+        "/help - список команд \n"
+        "/murr - мурчання раз на 10хв \n"
         "/set_murr [число] - Встановити кількість мурчань.\n"
-        "/status - Перевірити стан бота."
+        "/about - про бота \n"
+        "/usik - coming soon"
     )
     await update.message.reply_text(f"Доступні команди:\n{commands}")
 
@@ -50,7 +51,7 @@ async def murr(update, context):
             remaining_time = timedelta(minutes=10) - elapsed_time
             minutes, seconds = divmod(remaining_time.seconds, 60)
             await update.message.reply_text(
-                f"Ваш мурчальник перегрівся 🐾! Спробуйте знову через {minutes} хвилин та {seconds} секунд."
+                f"ndsq мурчальник перегрівся 🐾! \n спробуй ще через {minutes} хвилин та {seconds} секунд."
             )
             return
 
@@ -59,7 +60,7 @@ async def murr(update, context):
 
     # Оновлення лічильника мурчань
     mur_counts[user_id] = mur_counts.get(user_id, 0) + 1
-    await update.message.reply_text(f"{user_name} помурчав 🐾! Всього мурчань: {mur_counts[user_id]}.")
+    await update.message.reply_text(f"{user_name} помурчав 🐾!\n Всього мурчань: {mur_counts[user_id]}.")
 
 # Хендлер для команди /set_murr
 async def set_murr(update, context):
@@ -68,13 +69,13 @@ async def set_murr(update, context):
 
     if context.args and context.args[0].isdigit():
         mur_counts[user_id] = int(context.args[0])
-        await update.message.reply_text(f"{user_name}, тепер кількість мурчань: {mur_counts[user_id]}.")
+        await update.message.reply_text(f"{user_name} чітер. \n всього мурчань: {mur_counts[user_id]}.")
     else:
         await update.message.reply_text("Будь ласка, введіть коректне число. Наприклад: /set_murr 10")
 
 # Хендлер для команди /status
 async def status(update, context):
-    await update.message.reply_text("Бот працює! 🐾")
+    await update.message.reply_text("накидайте ідей що написати сюди в розділ про бота")
 
 # Функція створення Telegram Application
 def create_application():
@@ -90,7 +91,7 @@ def create_application():
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("murr", murr))
     application.add_handler(CommandHandler("set_murr", set_murr))
-    application.add_handler(CommandHandler("status", status))
+    application.add_handler(CommandHandler("about", status))
 
     return application
 
