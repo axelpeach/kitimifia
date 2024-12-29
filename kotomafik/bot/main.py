@@ -122,7 +122,7 @@ async def status(update, context):
 def create_application():
     token = os.getenv("TELEGRAM_TOKEN")
     if not token:logger.error("Не вказано TELEGRAM_TOKEN у змінних середовища!")
-        exit(1)
+    exit(1)
 
     application = Application.builder().token(token).build()
 
