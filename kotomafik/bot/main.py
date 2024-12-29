@@ -90,7 +90,7 @@ async def murr(update, context):
             remaining_time = timedelta(minutes=10) - elapsed_time
             minutes, seconds = divmod(remaining_time.seconds, 60)
             await update.message.reply_text(
-                f"твій мурчальник перегрівся 🐾 /nСпробуйте знову через {minutes} хвилин та {seconds} секунд."
+                f"твій мурчальник перегрівся 🐾 \nСпробуйте знову через {minutes} хвилин та {seconds} секунд."
             )
             return
 
@@ -99,7 +99,7 @@ async def murr(update, context):
 
     # Оновлення лічильника мурчань
     mur_counts[user_id] = mur_counts.get(user_id, 0) + 1
-    await update.message.reply_text(f"{user_name} помурчав 🐾 /nВсього мурчань: {mur_counts[user_id]}.")
+    await update.message.reply_text(f"{user_name} помурчав 🐾 \nВсього мурчань: {mur_counts[user_id]}.")
 
 # Хендлер для команди /set_murr
 async def set_murr(update, context):
@@ -108,9 +108,9 @@ async def set_murr(update, context):
 
     if context.args and context.args[0].isdigit():
         mur_counts[user_id] = int(context.args[0])
-        await update.message.reply_text(f"{user_first} чітір /nтепер кількість мурчань: {mur_counts[user_id]}.")
+        await update.message.reply_text(f"{user_first} чітір \nтепер кількість мурчань: {mur_counts[user_id]}.")
     else:
-        await update.message.reply_text("ха ||лох|| будь ласка, введи коректне число. Наприклад: /set_murr 10")
+        await update.message.reply_text("ха будь ласка, введи коректне число. Наприклад: /set_murr 10")
 
 # Хендлер для команди /status
 async def status(update, context):
