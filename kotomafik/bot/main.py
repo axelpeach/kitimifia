@@ -3,8 +3,9 @@ import logging
 from telegram.ext import Application, CommandHandler
 from datetime import datetime, timedelta
 import nest_asyncio
+import asyncio
 
-# Патч для асинхронного циклу (усуває проблему "RuntimeError: Cannot close a running event loop")
+# Патч для асинхронного циклу
 nest_asyncio.apply()
 
 # Налаштування логування
@@ -22,19 +23,18 @@ last_mur_time = {}
 async def start(update, context):
     user = update.effective_user
     await update.message.reply_text(
-        f"привіт, {user.first_name} 🐾\n"
-        "натисни /help, щоб побачити список доступних команд."
+        f"Привіт, {user.first_name}! 🐾\n"
+        "Я ваш помічник. Введіть /help, щоб побачити список доступних команд."
     )
 
 # Хендлер для команди /help
 async def help_command(update, context):
     commands = (
-        "/start - не більше ніж старт \n"
-        "/help - список команд \n"
-        "/murr - мурчання раз на 10хв \n"
+        "/start - Почати спілкування з ботом.\n"
+        "/help - Показати список команд і їх функціонал.\n"
+        "/murr - Помурчати 🐾 (раз на 10 хвилин).\n"
         "/set_murr [число] - Встановити кількість мурчань.\n"
-        "/about - про бота \n"
-        "/usik - coming soon"
+        "/status - Перевірити стан бота."
     )
     await update.message.reply_text(f"Доступні команди:\n{commands}")
 
@@ -51,7 +51,7 @@ async def murr(update, context):
             remaining_time = timedelta(minutes=10) - elapsed_time
             minutes, seconds = divmod(remaining_time.seconds, 60)
             await update.message.reply_text(
-                f"ndsq мурчальник перегрівся 🐾! \n спробуй ще через {minutes} хвилин та {seconds} секунд."
+                f"Ваш мурчальник перегрівся 🐾! Спробуйте знову через {minutes} хвилин та {seconds} секунд."
             )
             return
 
@@ -60,7 +60,7 @@ async def murr(update, context):
 
     # Оновлення лічильника мурчань
     mur_counts[user_id] = mur_counts.get(user_id, 0) + 1
-    await update.message.reply_text(f"{user_name} помурчав 🐾!\n Всього мурчань: {mur_counts[user_id]}.")
+    await update.message.reply_text(f"{user_name} помурчав 🐾! Всього мурчань: {mur_counts[user_id]}.")
 
 # Хендлер для команди /set_murr
 async def set_murr(update, context):
@@ -69,13 +69,13 @@ async def set_murr(update, context):
 
     if context.args and context.args[0].isdigit():
         mur_counts[user_id] = int(context.args[0])
-        await update.message.reply_text(f"{user_name} чітер. \n всього мурчань: {mur_counts[user_id]}.")
+        await update.message.reply_text(f"{user_name}, тепер кількість мурчань: {mur_counts[user_id]}.")
     else:
         await update.message.reply_text("Будь ласка, введіть коректне число. Наприклад: /set_murr 10")
 
 # Хендлер для команди /status
 async def status(update, context):
-    await update.message.reply_text("накидайте ідей що написати сюди в розділ про бота")
+    await update.message.reply_text("Бот працює! 🐾")
 
 # Функція створення Telegram Application
 def create_application():
@@ -91,21 +91,21 @@ def create_application():
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("murr", murr))
     application.add_handler(CommandHandler("set_murr", set_murr))
-    application.add_handler(CommandHandler("about", status))
+    application.add_handler(CommandHandler("status", status))
 
     return application
 
 # Основна функція запуску бота
-async def main():
+def main():
     application = create_application()
+
     try:
         logger.info("Запуск бота через полінг")
-        await application.run_polling()
+        asyncio.run(application.run_polling())
     except Exception as e:
         logger.error(f"Помилка під час роботи бота: {e}")
     finally:
         logger.info("Бот завершив роботу.")
 
 if __name__ == "__main__":
-    import asyncio
-    asyncio.run(main())
+    main()
