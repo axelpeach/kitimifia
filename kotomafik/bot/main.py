@@ -4,6 +4,7 @@ from telegram.ext import Application, CommandHandler
 from datetime import datetime, timedelta
 import nest_asyncio
 import asyncio
+import random  # Для генерації випадкових значень
 
 # Патч для асинхронного циклу
 nest_asyncio.apply()
@@ -19,22 +20,57 @@ logger = logging.getLogger(__name__)
 mur_counts = {}
 last_mur_time = {}
 
+async def usik(update, context):
+    user_id = update.effective_user.id
+    user_name = update.effective_user.first_name
+    now = datetime.now()
+
+    # Перевірка на обмеження часу
+    if user_id in last_usik_time:
+        elapsed_time = now - last_usik_time[user_id]
+        if elapsed_time < timedelta(minutes=20):
+            remaining_time = timedelta(minutes=20) - elapsed_time
+            minutes, seconds = divmod(remaining_time.seconds, 60)
+            await update.message.reply_text(
+                f"не все одразу \n"
+                f"спробуй через {minutes} хвилин та {seconds} секунд."
+            )
+            return
+
+    # Оновлюємо час останнього вирощування вусів
+    last_usik_time[user_id] = now
+
+    # Ініціалізація довжини вусів, якщо користувач ще не починав
+    if user_id not in usik_lengths:
+        usik_lengths[user_id] = 0.0
+
+    # Генерація зміни довжини вусів (-7 до +7 мм)
+    change = round(random.uniform(-7, 7), 2)
+    usik_lengths[user_id] = max(0.0, usik_lengths[user_id] + change)  # Вуса не можуть бути менше 0
+
+    # Відправка повідомлення користувачу
+    await update.message.reply_text(
+        f"{user_first}, твої вуса {'збільшились' if change > 0 else 'зменшились'} на {abs(change):.2f} мм.\n"
+        f"Загальна довжина: {usik_lengths[user_id]:.2f} мм. 🧔‍♂️"
+    )
+
 # Хендлер для команди /start
 async def start(update, context):
     user = update.effective_user
     await update.message.reply_text(
-        f"Привіт, {user.first_name}! 🐾\n"
-        "Я ваш помічник. Введіть /help, щоб побачити список доступних команд."
+        f"Привіт, {user.first_name} 🐾\n"
+        "тикни лапкою /help, щоб побачити список доступних команд."
     )
 
 # Хендлер для команди /help
 async def help_command(update, context):
     commands = (
-        "/start - Почати спілкування з ботом.\n"
-        "/help - Показати список команд і їх функціонал.\n"
-        "/murr - Помурчати 🐾 (раз на 10 хвилин).\n"
+        "/start - не більше ніж старт.\n"
+        "/help - показати список команд.\n"
+        "/murr - помурчати.\n"
         "/set_murr [число] - Встановити кількість мурчань.\n"
-        "/status - Перевірити стан бота."
+        "/about - про бота"
+        "/usik - растіть усікі"
     )
     await update.message.reply_text(f"Доступні команди:\n{commands}")
 
@@ -51,7 +87,7 @@ async def murr(update, context):
             remaining_time = timedelta(minutes=10) - elapsed_time
             minutes, seconds = divmod(remaining_time.seconds, 60)
             await update.message.reply_text(
-                f"Ваш мурчальник перегрівся 🐾! Спробуйте знову через {minutes} хвилин та {seconds} секунд."
+                f"твій мурчальник перегрівся 🐾 /nСпробуйте знову через {minutes} хвилин та {seconds} секунд."
             )
             return
 
@@ -60,7 +96,7 @@ async def murr(update, context):
 
     # Оновлення лічильника мурчань
     mur_counts[user_id] = mur_counts.get(user_id, 0) + 1
-    await update.message.reply_text(f"{user_name} помурчав 🐾! Всього мурчань: {mur_counts[user_id]}.")
+    await update.message.reply_text(f"{user_name} помурчав 🐾 /nВсього мурчань: {mur_counts[user_id]}.")
 
 # Хендлер для команди /set_murr
 async def set_murr(update, context):
@@ -69,13 +105,13 @@ async def set_murr(update, context):
 
     if context.args and context.args[0].isdigit():
         mur_counts[user_id] = int(context.args[0])
-        await update.message.reply_text(f"{user_name}, тепер кількість мурчань: {mur_counts[user_id]}.")
+        await update.message.reply_text(f"{user_first} чітір /nтепер кількість мурчань: {mur_counts[user_id]}.")
     else:
-        await update.message.reply_text("Будь ласка, введіть коректне число. Наприклад: /set_murr 10")
+        await update.message.reply_text("ха ||лох|| будь ласка, введи коректне число. Наприклад: /set_murr 10")
 
 # Хендлер для команди /status
 async def status(update, context):
-    await update.message.reply_text("Бот працює! 🐾")
+    await update.message.reply_text("придумйте самі що тут буде але краще б картка розробника")
 
 # Функція створення Telegram Application
 def create_application():
@@ -91,7 +127,8 @@ def create_application():
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("murr", murr))
     application.add_handler(CommandHandler("set_murr", set_murr))
-    application.add_handler(CommandHandler("status", status))
+    application.add_handler(CommandHandler("about", status))
+    application.add_handler(CommandHandler("usik", usik))
 
     return application
 
