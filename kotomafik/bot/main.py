@@ -7,7 +7,6 @@ from datetime import datetime, timedelta
 import nest_asyncio
 import random
 import asyncio
-import httpx
 from threading import Thread
 
 # Патч для асинхронного циклу
@@ -134,7 +133,7 @@ def create_application():
         logger.error("Не вказано TELEGRAM_TOKEN у змінних середовища!")
         exit(1)
 
-    application = Application.builder(). token(token).build()
+    application = Application.builder().token(token).build()
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("murr", murr))
@@ -153,12 +152,12 @@ def main():
     flask_thread.start()
 
     logger.info("Запуск бота через вебхуки")
-Application.run_webhook( 
-    listen="0.0.0.0",
-    port=8080,
-    url_path=f"webhook/{os.getenv('TELEGRAM_TOKEN')}",
-    webhook_url="https://kitimifia.onrender.com/webhook/{os.getenv('TELEGRAM_TOKEN')}"  # Замість HTTP на HTTPS
-)
+    application.run_webhook(
+        listen="0.0.0.0",
+        port=8080,
+        url_path=f"webhook/{os.getenv('TELEGRAM_TOKEN')}",
+        webhook_url=f"https://kitimifia.onrender.com/webhook/{os.getenv('TELEGRAM_TOKEN')}"  # HTTPS URL
+    )
 
 if __name__ == "__main__":
     main()
