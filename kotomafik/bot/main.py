@@ -153,7 +153,7 @@ def main():
     flask_thread.start()
 
     logger.info("Запуск бота через вебхуки")
- application.run_webhook(
+ application.run_webhook( 
     listen="0.0.0.0",
     port=8080,
     url_path=f"webhook/{os.getenv('TELEGRAM_TOKEN')}",
