@@ -1,6 +1,8 @@
 import os
 import logging
 from telegram.ext import Application, CommandHandler
+from flask import Flask
+from threading import Thread
 from datetime import datetime, timedelta
 import nest_asyncio
 import random
@@ -19,6 +21,16 @@ last_mur_time = {}
 # Дані для вусів
 usik_lengths = {}
 last_usik_time = {}
+
+# Flask додаток для UptimeRobot
+app = Flask("")
+
+@app.route("/")
+def home():
+    return "Бот працює! 🐾"
+
+def run_flask():
+    app.run(host="0.0.0.0", port=8080)
 
 # Команда /usik
 async def usik(update, context):
@@ -120,6 +132,11 @@ def create_application():
 # Основна функція запуску бота
 def main():
     application = create_application()
+
+    # Запуск Flask серверу в окремому потоці
+    flask_thread = Thread(target=run_flask)
+    flask_thread.start()
+
     logger.info("Запуск бота через полінг")
     application.run_polling()
 
