@@ -1,12 +1,14 @@
 import os
 import logging
-from telegram.ext import Application, CommandHandler, Dispatcher
+from telegram import Update
+from telegram.ext import Application, CommandHandler, ContextTypes
 from flask import Flask, request
 from datetime import datetime, timedelta
 import nest_asyncio
 import random
 import asyncio
 import httpx
+from threading import Thread
 
 # Патч для асинхронного циклу
 nest_asyncio.apply()
@@ -38,14 +40,14 @@ def webhook(token):
     json_str = request.get_data().decode("UTF-8")
     update = Update.de_json(json_str, application.bot)
 
-    dispatcher.process_update(update)
+    application.process_update(update)
     return "OK"
 
 def run_flask():
     app.run(host="0.0.0.0", port=8080)
 
 # Команда /usik
-async def usik(update, context):
+async def usik(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     user_name = update.effective_user.first_name
     now = datetime.now()
@@ -73,14 +75,14 @@ async def usik(update, context):
     )
 
 # Команда /start
-async def start(update, context):
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     await update.message.reply_text(
         f"Привіт, {user.first_name} 🐾\nТикни лапкою /help, щоб побачити список доступних команд."
     )
 
 # Команда /help
-async def help_command(update, context):
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     commands = (
         "/start - Почати спілкування з ботом.\n"
         "/help - Показати список команд.\n"
@@ -92,7 +94,7 @@ async def help_command(update, context):
     await update.message.reply_text(f"Доступні команди:\n{commands}")
 
 # Команда /murr
-async def murr(update, context):
+async def murr(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     user_name = update.effective_user.first_name
     now = datetime.now()
@@ -112,7 +114,7 @@ async def murr(update, context):
     await update.message.reply_text(f"{user_name} помурчав 🐾\nВсього мурчань: {mur_counts[user_id]}.")
 
 # Команда /set_murr
-async def set_murr(update, context):
+async def set_murr(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     user_name = update.effective_user.first_name
     if context.args and context.args[0].isdigit():
@@ -122,7 +124,7 @@ async def set_murr(update, context):
         await update.message.reply_text("Будь ласка, введіть коректне число. Наприклад: /set_murr 10")
 
 # Команда /about
-async def about(update, context):
+async def about(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Це бот, який допомагає котам мурчати та ростити вуса 🐾.")
 
 # Функція створення Telegram Application
@@ -143,6 +145,7 @@ def create_application():
 
 # Основна функція запуску бота
 def main():
+    global application
     application = create_application()
 
     # Запуск Flask серверу в окремому потоці
