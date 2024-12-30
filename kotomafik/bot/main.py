@@ -3,8 +3,7 @@ import logging
 from telegram.ext import Application, CommandHandler
 from datetime import datetime, timedelta
 import nest_asyncio
-import asyncio
-import random  # Для генерації випадкових значень
+import random
 
 # Патч для асинхронного циклу
 nest_asyncio.apply()
@@ -27,7 +26,6 @@ async def usik(update, context):
     user_name = update.effective_user.first_name
     now = datetime.now()
 
-    # Перевірка на обмеження часу
     if user_id in last_usik_time:
         elapsed_time = now - last_usik_time[user_id]
         if elapsed_time < timedelta(minutes=20):
@@ -37,18 +35,14 @@ async def usik(update, context):
                 f"Не все одразу 🐾\nСпробуй через {minutes} хвилин та {seconds} секунд."
             )
             return
-    # Оновлюємо час останнього вирощування вусів
-    last_usik_time[user_id] = now
 
-    # Ініціалізація довжини вусів, якщо користувач ще не починав
+    last_usik_time[user_id] = now
     if user_id not in usik_lengths:
         usik_lengths[user_id] = 0.0
 
-    # Генерація зміни довжини вусів (-7 до +7 мм)
     change = round(random.uniform(-7, 7), 2)
-    usik_lengths[user_id] = max(0.0, usik_lengths[user_id] + change)  # Вуса не можуть бути менше 0
+    usik_lengths[user_id] = max(0.0, usik_lengths[user_id] + change)
 
-    # Відправка повідомлення користувачу
     await update.message.reply_text(
         f"{user_name}, твої вуса {'збільшились' if change > 0 else 'зменшились'} на {abs(change):.2f} мм.\n"
         f"Загальна довжина: {usik_lengths[user_id]:.2f} мм."
@@ -79,7 +73,6 @@ async def murr(update, context):
     user_name = update.effective_user.first_name
     now = datetime.now()
 
-    # Перевірка на обмеження часу
     if user_id in last_mur_time:
         elapsed_time = now - last_mur_time[user_id]
         if elapsed_time < timedelta(minutes=10):
@@ -90,10 +83,7 @@ async def murr(update, context):
             )
             return
 
-    # Оновлюємо час останнього мурчання
     last_mur_time[user_id] = now
-
-    # Оновлення лічильника мурчань
     mur_counts[user_id] = mur_counts.get(user_id, 0) + 1
     await update.message.reply_text(f"{user_name} помурчав 🐾\nВсього мурчань: {mur_counts[user_id]}.")
 
@@ -111,7 +101,8 @@ async def set_murr(update, context):
 async def about(update, context):
     await update.message.reply_text("Це бот, який допомагає котам мурчати та ростити вуса 🐾.")
 
-# Функція створення Telegram Applicationdef create_application():
+# Функція створення Telegram Application
+def create_application():
     token = os.getenv("TELEGRAM_TOKEN")
     if not token:
         logger.error("Не вказано TELEGRAM_TOKEN у змінних середовища!")
@@ -130,7 +121,7 @@ async def about(update, context):
 def main():
     application = create_application()
     logger.info("Запуск бота через полінг")
-    application.run_polling()  # Викликаємо run_polling без спроби зупинити цикл
+    application.run_polling()
 
 if __name__ == "__main__":
     main()
