@@ -1,12 +1,12 @@
 import os
 import logging
-import asyncio
 import random
 from datetime import datetime, timedelta
 from flask import Flask
 from threading import Thread
 from telegram.ext import Application, CommandHandler
 import nest_asyncio
+import asyncio
 
 # Патч для асинхронного циклу
 nest_asyncio.apply()
@@ -152,7 +152,7 @@ def run_flask():
     app.run(host="0.0.0.0", port=8080)
 
 # Основна функція запуску бота
-def main():
+async def main():
     application = create_application()
 
     # Запуск Flask-сервера у фоновому потоці
@@ -161,11 +161,11 @@ def main():
     # Запуск Telegram бота
     try:
         logger.info("Запуск бота через полінг")
-        asyncio.run(application.run_polling())
+        await application.run_polling()
     except Exception as e:
         logger.error(f"Помилка під час роботи бота: {e}")
     finally:
         logger.info("Бот завершив роботу.")
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
