@@ -4,14 +4,13 @@ from telegram.ext import Application, CommandHandler
 from flask import Flask, request
 from threading import Thread
 from datetime import datetime, timedelta
-import nest_asyncio
 import random
-
-# Патч для асинхронного циклу
-nest_asyncio.apply()
+import asyncio
 
 # Налаштування логування
-logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+)
 logger = logging.getLogger(__name__)
 
 # Лічильники мурчань і час останнього мурчання
@@ -22,52 +21,14 @@ last_mur_time = {}
 usik_lengths = {}
 last_usik_time = {}
 
-# Flask додаток для UptimeRobot
-app = Flask("")
+# Flask додаток для вебхуків
+app = Flask(__name__)
+bot_token = os.getenv("TELEGRAM_TOKEN")
+webhook_url = os.getenv("WEBHOOK_URL")  # Наприклад: "https://yourdomain.com/webhook"
 
-@app.route("/")
-def home():
-    return "Бот працює! 🐾"
-
-# Flask обробник для вебхуків
-@app.route("/webhook", methods=["POST"])
-def webhook():
-    if request.method == "POST":
-        json_str = request.get_data().decode("UTF-8")
-        update = telegram.Update.de_json(json_str, application.bot)
-        application.update_queue.put(update)
-        return "OK", 200
-
-def run_flask():
-    app.run(host="0.0.0.0", port=8081)  # Змінив порт на 8081, щоб уникнути конфлікту
-
-# Команда /usik
-async def usik(update, context):
-    user_id = update.effective_user.id
-    user_name = update.effective_user.first_name
-    now = datetime.now()
-
-    if user_id in last_usik_time:
-        elapsed_time = now - last_usik_time[user_id]
-        if elapsed_time < timedelta(minutes=20):
-            remaining_time = timedelta(minutes=20) - elapsed_time
-            minutes, seconds = divmod(remaining_time.seconds, 60)
-            await update.message.reply_text(
-                f"Не все одразу 🐾\nСпробуй через {minutes} хвилин та {seconds} секунд."
-            )
-            return
-
-    last_usik_time[user_id] = now
-    if user_id not in usik_lengths:
-        usik_lengths[user_id] = 0.0
-
-    change = round(random.uniform(-7, 7), 2)
-    usik_lengths[user_id] = max(0.0, usik_lengths[user_id] + change)
-
-    await update.message.reply_text(
-        f"{user_name}, твої вуса {'збільшились' if change > 0 else 'зменшились'} на {abs(change):.2f} мм.\n"
-        f"Загальна довжина: {usik_lengths[user_id]:.2f} мм."
-    )
+if not bot_token or not webhook_url:
+    logger.error("Не вказано TELEGRAM_TOKEN або WEBHOOK_URL у змінних середовища!")
+    exit(1)
 
 # Команда /start
 async def start(update, context):
@@ -118,17 +79,52 @@ async def set_murr(update, context):
     else:
         await update.message.reply_text("Будь ласка, введіть коректне число. Наприклад: /set_murr 10")
 
-# Команда /aboutasync def about(update, context):
+# Команда /usik
+async def usik(update, context):
+    user_id = update.effective_user.id
+    user_name = update.effective_user.first_name
+    now = datetime.now()
+
+    if user_id in last_usik_time:
+        elapsed_time = now - last_usik_time[user_id]
+        if elapsed_time < timedelta(minutes=20):
+            remaining_time = timedelta(minutes=20) - elapsed_time
+            minutes, seconds = divmod(remaining_time.seconds, 60)
+            await update.message.reply_text(
+                f"Не все одразу 🐾\nСпробуй через {minutes} хвилин та {seconds} секунд."
+            )
+            return
+
+    last_usik_time[user_id] = now
+    if user_id not in usik_lengths:
+        usik_lengths[user_id] = 0.0
+
+    change = round(random.uniform(-7, 7), 2)
+    usik_lengths[user_id] = max(0.0, usik_lengths[user_id] + change)
+
+    await update.message.reply_text(
+        f"{user_name}, твої вуса {'збільшились' if change > 0 else 'зменшились'} на {abs(change):.2f} мм.\n"
+        f"Загальна довжина: {usik_lengths[user_id]:.2f} мм."
+    )
+
+# Команда /about
+async def about(update, context):
     await update.message.reply_text("Це бот, який допомагає котам мурчати та ростити вуса 🐾.")
+
+# Flask маршрут для вебхуків
+@app.route(f"/{bot_token}", methods=["POST"])
+def telegram_webhook():
+    json_data = request.get_json()
+    asyncio.run(application.update_queue.put(json_data))
+    return "OK", 200
+
+@app.route("/")
+def home():
+    return "Бот працює! 🐾"
 
 # Функція створення Telegram Application
 def create_application():
-    token = os.getenv("TELEGRAM_TOKEN")
-    if not token:
-        logger.error("Не вказано TELEGRAM_TOKEN у змінних середовища!")
-        exit(1)
-
-    application = Application.builder(). token(token).build()
+    application = Application.builder().token(bot_token).build()
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("murr", murr))
@@ -139,20 +135,18 @@ def create_application():
 
 # Основна функція запуску бота
 async def main():
+    global application
     application = create_application()
 
-    # Налаштування вебхука
-    url = f"https://https://kitimifia.onrender.com/webhook"
-    await application.bot.set_webhook(url)  # Додано await
+    # Встановлення вебхука
+    webhook_url_full = f"{webhook_url}/{bot_token}"
+    await application.bot.set_webhook(webhook_url_full)
+    logger.info(f"Вебхук встановлено: {webhook_url_full}")
 
-    # Запуск Flask серверу в окремому потоці
-    flask_thread = Thread(target=run_flask)
+    # Запуск Flask-серверу
+    flask_thread = Thread(target=app.run, kwargs={"host": "0.0.0.0", "port": 8080})
     flask_thread.start()
 
-    logger.info("Запуск бота через вебхуки")
-    # Flask-сервер обробляє запити замість run_polling
-    app.run(host="0.0.0.0", port=8081)  # Змінив порт на 8081
-
+# Запуск основної функції
 if __name__ == "__main__":
-    import asyncio
     asyncio.run(main())
