@@ -1,21 +1,16 @@
 import os
 import logging
-import random
-from datetime import datetime, timedelta
-from flask import Flask
-from threading import Thread
 from telegram.ext import Application, CommandHandler
+from datetime import datetime, timedelta
 import nest_asyncio
 import asyncio
+import random  # Для генерації випадкових значень
 
 # Патч для асинхронного циклу
 nest_asyncio.apply()
 
 # Налаштування логування
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    level=logging.INFO,
-)
+logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Лічильники мурчань і час останнього мурчання
@@ -42,7 +37,6 @@ async def usik(update, context):
                 f"Не все одразу 🐾\nСпробуй через {minutes} хвилин та {seconds} секунд."
             )
             return
-
     # Оновлюємо час останнього вирощування вусів
     last_usik_time[user_id] = now
 
@@ -107,65 +101,36 @@ async def murr(update, context):
 async def set_murr(update, context):
     user_id = update.effective_user.id
     user_name = update.effective_user.first_name
-
     if context.args and context.args[0].isdigit():
         mur_counts[user_id] = int(context.args[0])
-        await update.message.reply_text(
-            f"{user_name}, тепер кількість мурчань: {mur_counts[user_id]}."
-        )
+        await update.message.reply_text(f"{user_name}, тепер кількість мурчань: {mur_counts[user_id]}.")
     else:
-        await update.message.reply_text(
-            "Будь ласка, введіть коректне число. Наприклад: /set_murr 10"
-        )
+        await update.message.reply_text("Будь ласка, введіть коректне число. Наприклад: /set_murr 10")
 
 # Команда /about
 async def about(update, context):
     await update.message.reply_text("Це бот, який допомагає котам мурчати та ростити вуса 🐾.")
 
-# Функція створення Telegram Application
-def create_application():
+# Функція створення Telegram Applicationdef create_application():
     token = os.getenv("TELEGRAM_TOKEN")
     if not token:
         logger.error("Не вказано TELEGRAM_TOKEN у змінних середовища!")
         exit(1)
 
     application = Application.builder().token(token).build()
-
-    # Додаємо хендлери команд
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("murr", murr))
     application.add_handler(CommandHandler("set_murr", set_murr))
     application.add_handler(CommandHandler("about", about))
     application.add_handler(CommandHandler("usik", usik))
-
     return application
 
-# Flask-сервер для UptimeRobot
-app = Flask("")
-
-@app.route("/")
-def home():
-    return "Бот працює!"
-
-def run_flask():
-    app.run(host="0.0.0.0", port=8080)
-
 # Основна функція запуску бота
-async def main():
+def main():
     application = create_application()
-
-    # Запуск Flask-сервера у фоновому потоці
-    Thread(target=run_flask).start()
-
-    # Запуск Telegram бота
-    try:
-        logger.info("Запуск бота через полінг")
-        await application.run_polling()
-    except Exception as e:
-        logger.error(f"Помилка під час роботи бота: {e}")
-    finally:
-        logger.info("Бот завершив роботу.")
+    logger.info("Запуск бота через полінг")
+    application.run_polling()  # Викликаємо run_polling без спроби зупинити цикл
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
