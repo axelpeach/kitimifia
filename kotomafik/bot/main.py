@@ -1,7 +1,7 @@
 import os
 import logging
 from telegram.ext import Application, CommandHandler
-from flask import Flask
+from flask import Flask, request
 from threading import Thread
 from datetime import datetime, timedelta
 import nest_asyncio
@@ -28,6 +28,15 @@ app = Flask("")
 @app.route("/")
 def home():
     return "Бот працює! 🐾"
+
+# Flask обробник для вебхуків
+@app.route("/webhook", methods=["POST"])
+def webhook():
+    if request.method == "POST":
+        json_str = request.get_data().decode("UTF-8")
+        update = telegram.Update.de_json(json_str, application.bot)
+        application.update_queue.put(update)
+        return "OK", 200
 
 def run_flask():
     app.run(host="0.0.0.0", port=8080)
@@ -120,7 +129,7 @@ def create_application():
         logger.error("Не вказано TELEGRAM_TOKEN у змінних середовища!")
         exit(1)
 
-    application = Application.builder().token(token).build()
+    application = Application.builder(). token(token).build()
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("murr", murr))
@@ -133,12 +142,17 @@ def create_application():
 def main():
     application = create_application()
 
+    # Налаштування вебхука
+    url = f"https://https://kitimifia.onrender.com/webhook"
+    application.bot.set_webhook(url)
+
     # Запуск Flask серверу в окремому потоці
     flask_thread = Thread(target=run_flask)
     flask_thread.start()
 
-    logger.info("Запуск бота через полінг")
-    application.run_polling()
+    logger.info("Запуск бота через вебхуки")
+    # Flask-сервер обробляє запити замість run_polling
+    app.run(host="0.0.0.0", port=8080)
 
 if __name__ == "__main__":
     main()
