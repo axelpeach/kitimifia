@@ -153,7 +153,12 @@ def main():
     flask_thread.start()
 
     logger.info("Запуск бота через вебхуки")
-    application.run_webhook(listen="0.0.0.0", port=8080, url_path=f"webhook/{os.getenv('TELEGRAM_TOKEN')}")
+ application.run_webhook(
+    listen="0.0.0.0",
+    port=8080,
+    url_path=f"webhook/{os.getenv('TELEGRAM_TOKEN')}",
+    webhook_url="https://kitimifia.onrender.com/webhook/{os.getenv('TELEGRAM_TOKEN')}"  # Замість HTTP на HTTPS
+)
 
 if __name__ == "__main__":
     main()
