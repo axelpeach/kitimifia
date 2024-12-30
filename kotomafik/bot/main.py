@@ -39,7 +39,7 @@ def webhook():
         return "OK", 200
 
 def run_flask():
-    app.run(host="0.0.0.0", port=8080)
+    app.run(host="0.0.0.0", port=8081)  # Змінив порт на 8081, щоб уникнути конфлікту
 
 # Команда /usik
 async def usik(update, context):
@@ -118,8 +118,7 @@ async def set_murr(update, context):
     else:
         await update.message.reply_text("Будь ласка, введіть коректне число. Наприклад: /set_murr 10")
 
-# Команда /about
-async def about(update, context):
+# Команда /aboutasync def about(update, context):
     await update.message.reply_text("Це бот, який допомагає котам мурчати та ростити вуса 🐾.")
 
 # Функція створення Telegram Application
@@ -139,12 +138,12 @@ def create_application():
     return application
 
 # Основна функція запуску бота
-def main():
+async def main():
     application = create_application()
 
     # Налаштування вебхука
     url = f"https://https://kitimifia.onrender.com/webhook"
-    application.bot.set_webhook(url)
+    await application.bot.set_webhook(url)  # Додано await
 
     # Запуск Flask серверу в окремому потоці
     flask_thread = Thread(target=run_flask)
@@ -152,7 +151,8 @@ def main():
 
     logger.info("Запуск бота через вебхуки")
     # Flask-сервер обробляє запити замість run_polling
-    app.run(host="0.0.0.0", port=8080)
+    app.run(host="0.0.0.0", port=8081)  # Змінив порт на 8081
 
-if __name__ == "__main__":
-    main()
+if name == "__main__":
+    import asyncio
+    asyncio.run(main())
