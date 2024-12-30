@@ -153,6 +153,6 @@ async def main():
     # Flask-сервер обробляє запити замість run_polling
     app.run(host="0.0.0.0", port=8081)  # Змінив порт на 8081
 
-if name == "__main__":
+if __name__ == "__main__":
     import asyncio
     asyncio.run(main())
