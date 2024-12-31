@@ -1,10 +1,8 @@
-from flask import Flask, jsonify
 import os
-from threading import Thread
+import sys
+import time
 import logging
 from telegram.ext import Application, CommandHandler, ContextTypes
-from datetime import datetime, timedelta
-import random
 
 # Створення Flask додатку
 app = Flask(__name__)
@@ -140,32 +138,22 @@ def create_application():
     application.add_handler(CommandHandler("usik", usik))
     return application
 
-# Основна функція запуску бота з полінгом
 def main():
-    application = create_application()
-    logger.info("Запуск бота через полінг")
-
-    # Запуск полінгу
-    application.run_polling(drop_pending_updates=True, allowed_updates=['message'])
-
-# Функція для перезапуску бота
-def restart_bot():
-    logger.info("Перезапуск бота...")
-    os.execv(sys.executable, ['python'] + sys.argv)
-
-def run_flask():
-    """Функція для запуску Flask сервера"""
-    app.run(host='0.0.0.0', port=5000)
-
-def main():
-    # Запуск Flask сервера в окремому потоці
-    flask_thread = Thread(target=run_flask)
+    # Запуск Flask у фоні
+    flask_thread = Thread(target=run_flask, daemon=True)
     flask_thread.start()
 
-    # Створення та запуск Telegram Application
     application = create_application()
     logger.info("Запуск бота через полінг")
-    application.run_polling()
+
+    while True:
+        try:
+            application.run_polling(allowed_updates=None)
+        except Exception as e:
+            logger.error(f"Сталася помилка: {e}")
+            logger.info("Перезапуск через 5 секунд...")
+            time.sleep(5)  # Затримка перед перезапуском
+            os.execv(sys.executable, ["python"] + sys.argv)
 
 if __name__ == "__main__":
     main()
