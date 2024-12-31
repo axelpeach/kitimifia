@@ -1,9 +1,11 @@
-
 import os
 import logging
-from telegram.ext import Application, CommandHandler, ContextTypes
+from telegram.ext import Application, CommandHandler, ContextTypes, Updater
 from datetime import datetime, timedelta
 import random
+import time
+import signal
+import sys
 
 # Налаштування логування
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
@@ -82,7 +84,7 @@ async def set_murr(update, context):
 
 # Команда /about
 async def about(update, context):
-    await update.message.reply_text("Це бот, який допомагає котам мурчати та ростити вуса 🐾.")
+    await update.message.reply_text("бот для мурчання та вирощування вусів, автор приймає донати на картку.")
 
 # Команда /usik
 async def usik(update, context):
@@ -107,8 +109,7 @@ async def usik(update, context):
     change = round(random.uniform(-7, 7), 2)
     usik_lengths[user_id] = max(0.0, usik_lengths[user_id] + change)
 
-    await update.message.reply_text(
-        f"{user_name}, твої вуса {'збільшились' if change > 0 else 'зменшились'} на {abs(change):.2f} мм.\n"f"Загальна довжина: {usik_lengths[user_id]:.2f} мм."
+    await update.message.reply_text(f"{user_name}, твої вуса {'збільшились' if change > 0 else 'зменшились'} на {abs(change):.2f} мм.\n"f"Загальна довжина: {usik_lengths[user_id]:.2f} мм."
     )
 
 # Функція створення Telegram Application
@@ -127,16 +128,18 @@ def create_application():
     application.add_handler(CommandHandler("usik", usik))
     return application
 
-# Основна функція запуску бота
+# Основна функція запуску бота з полінгом
 def main():
     application = create_application()
-    logger.info("Запуск бота через вебхуки")
-    application.run_webhook(
-        listen="0.0.0.0",
-        port=8443,  # Використовуйте доступний порт
-        url_path=f"webhook/{os.getenv('TELEGRAM_TOKEN')}",
-        webhook_url=f"https://kitimifia.onrender.com/webhook/{os.getenv('TELEGRAM_TOKEN')}"  # HTTPS URL
-    )
+    logger.info("Запуск бота через полінг")
+
+    # Запуск полінгу
+    application.run_polling(drop_pending_updates=True, allowed_updates=['message'])
+
+# Функція для перезапуску бота
+def restart_bot():
+    logger.info("Перезапуск бота...")
+    os.execv(sys.executable, ['python'] + sys.argv)
 
 if __name__ == "__main__":
     main()
