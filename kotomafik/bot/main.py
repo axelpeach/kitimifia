@@ -65,11 +65,11 @@ async def murr(update, context):
         target_user = update.message.reply_to_message.from_user
         target_name = f"{target_user.first_name} @{target_user.username}" if target_user.username else target_user.first_name
         await update.message.reply_text(
-            f"{user_name} помурчав {target_name} на вушко! 🐾 Всього мурчань: {murr_count}"
+            f"{user_name} помурчав на вушко {target_first_name} \n🐾 Всього мурчань: {murr_count}"
         )
     else:
         await update.message.reply_text(
-            f"{user_name} помурчав! 🐾 Всього мурчань: {murr_count}"
+            f"{user_name} помурчав! \n🐾 Всього мурчань: {murr_count}"
         )
 
 # Команда /set_murr
