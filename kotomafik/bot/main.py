@@ -94,8 +94,7 @@ async def set_murr(update, context):
 
 # Команда /about
 async def about(update, context):
-    await update.message.reply_text("бот для мурчання та вирощування вусів, автор приймає донати на картку або банку. /n🔗Посилання на банку
-https://send.monobank.ua/jar/3eEsFDGC3e")
+    await update.message.reply_text("бот для мурчання та вирощування вусів, автор приймає донати на картку або банку.")
 
 # Команда /usik
 async def usik(update, context):
