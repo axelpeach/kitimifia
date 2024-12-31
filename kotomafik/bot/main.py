@@ -94,7 +94,8 @@ async def set_murr(update, context):
 
 # Команда /about
 async def about(update, context):
-    await update.message.reply_text("бот для мурчання та вирощування вусів, автор приймає донати на картку або банку.")
+    await update.message.reply_text("бот для мурчання та вирощування вусів, автор приймає донати на картку або банку. /n🔗Посилання на банку
+https://send.monobank.ua/jar/3eEsFDGC3e")
 
 # Команда /usik
 async def usik(update, context):
@@ -139,6 +140,10 @@ def create_application():
     application.add_handler(CommandHandler("about", about))
     application.add_handler(CommandHandler("usik", usik))
     return application
+
+def run_flask():
+    """Функція для запуску Flask сервера."""
+    app.run(host="0.0.0.0", port=5000)
 
 def main():
     # Запуск Flask у фоні
