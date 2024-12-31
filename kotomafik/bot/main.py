@@ -1,11 +1,22 @@
+from flask import Flask, jsonify
 import os
+from threading import Thread
 import logging
-from telegram.ext import Application, CommandHandler, ContextTypes, Updater
+from telegram.ext import Application, CommandHandler, ContextTypes
 from datetime import datetime, timedelta
 import random
-import time
-import signal
-import sys
+
+# Створення Flask додатку
+app = Flask(__name__)
+
+# Додаткові налаштування
+logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+@app.route('/uptime', methods=['GET'])
+def uptime():
+    """Цей маршрут буде використовуватись UptimeRobot для перевірки стану."""
+    return jsonify(status="UP", message="Bot is running"), 200
 
 # Налаштування логування
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
@@ -63,13 +74,14 @@ async def murr(update, context):
     # Перевірка, чи є повідомлення відповіддю на інше
     if update.message.reply_to_message:
         target_user = update.message.reply_to_message.from_user
-        target_name = f"{target_user.first_name} @{target_user.username}" if target_user.username else target_user.first_name
+        target_first_name = target_user.first_name  # Оголошення target_first_name
+        target_name = f"{target_first_name} @{target_user.username}" if target_user.username else target_first_name
         await update.message.reply_text(
-            f"{user_name} помурчав на вушко {target_first_name} \n🐾 Всього мурчань: {murr_count}"
+            f"{user_name} помурчав на вушко {target_name} 🐾 \nВсього мурчань: {murr_count}"
         )
     else:
         await update.message.reply_text(
-            f"{user_name} помурчав! \n🐾 Всього мурчань: {murr_count}"
+            f"{user_name} помурчав! 🐾 \nВсього мурчань: {murr_count}"
         )
 
 # Команда /set_murr
@@ -84,7 +96,7 @@ async def set_murr(update, context):
 
 # Команда /about
 async def about(update, context):
-    await update.message.reply_text("бот для мурчання та вирощування вусів, автор приймає донати на картку.")
+    await update.message.reply_text("бот для мурчання та вирощування вусів, автор приймає донати на картку або банку.")
 
 # Команда /usik
 async def usik(update, context):
@@ -140,6 +152,20 @@ def main():
 def restart_bot():
     logger.info("Перезапуск бота...")
     os.execv(sys.executable, ['python'] + sys.argv)
+
+def run_flask():
+    """Функція для запуску Flask сервера"""
+    app.run(host='0.0.0.0', port=5000)
+
+def main():
+    # Запуск Flask сервера в окремому потоці
+    flask_thread = Thread(target=run_flask)
+    flask_thread.start()
+
+    # Створення та запуск Telegram Application
+    application = create_application()
+    logger.info("Запуск бота через полінг")
+    application.run_polling()
 
 if __name__ == "__main__":
     main()
