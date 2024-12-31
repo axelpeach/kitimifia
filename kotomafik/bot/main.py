@@ -98,6 +98,7 @@ async def murr(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_name = update.effective_user.first_name
     now = datetime.now()
 
+    # Перевірка часу останнього мурчання
     if user_id in last_mur_time:
         elapsed_time = now - last_mur_time[user_id]
         if elapsed_time < timedelta(minutes=10):
@@ -108,9 +109,22 @@ async def murr(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             return
 
+    # Оновлення часу останнього мурчання
     last_mur_time[user_id] = now
     mur_counts[user_id] = mur_counts.get(user_id, 0) + 1
-    await update.message.reply_text(f"{user_name} помурчав 🐾\nВсього мурчань: {mur_counts[user_id]}.")
+    murr_count = mur_counts[user_id]
+
+    # Перевірка, чи є повідомлення відповіддю на інше
+    if update.message.reply_to_message:
+        target_user = update.message.reply_to_message.from_user
+        target_name = f"{target_user.first_name} @{target_user.username}" if target_user.username else target_user.first_name
+        await update.message.reply_text(
+            f"{user_name} помурчав {target_name} на вушко! 🐾 Всього мурчань: {murr_count}"
+        )
+    else:
+        await update.message.reply_text(
+            f"{user_name} помурчав! 🐾 Всього мурчань: {murr_count}"
+        )
 
 # Команда /set_murr
 async def set_murr(update: Update, context: ContextTypes.DEFAULT_TYPE):
