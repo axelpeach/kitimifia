@@ -2,23 +2,26 @@ import os
 import sys
 import time
 import logging
-from telegram.ext import Application, CommandHandler, ContextTypes
+import random
+from datetime import datetime, timedelta
+from threading import Thread
+from flask import Flask, jsonify
+from telegram.ext import Application, CommandHandler
+
+# Налаштування логування
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    level=logging.INFO,
+)
+logger = logging.getLogger(__name__)
 
 # Створення Flask додатку
 app = Flask(__name__)
-
-# Додаткові налаштування
-logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 @app.route('/uptime', methods=['GET'])
 def uptime():
     """Цей маршрут буде використовуватись UptimeRobot для перевірки стану."""
     return jsonify(status="UP", message="Bot is running"), 200
-
-# Налаштування логування
-logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 # Лічильники мурчань і час останнього мурчання
 mur_counts = {}
@@ -53,7 +56,6 @@ async def murr(update, context):
     user_name = update.effective_user.first_name
     now = datetime.now()
 
-    # Перевірка часу останнього мурчання
     if user_id in last_mur_time:
         elapsed_time = now - last_mur_time[user_id]
         if elapsed_time < timedelta(minutes=10):
@@ -64,15 +66,13 @@ async def murr(update, context):
             )
             return
 
-    # Оновлення часу останнього мурчання
     last_mur_time[user_id] = now
     mur_counts[user_id] = mur_counts.get(user_id, 0) + 1
     murr_count = mur_counts[user_id]
 
-    # Перевірка, чи є повідомлення відповіддю на інше
     if update.message.reply_to_message:
         target_user = update.message.reply_to_message.from_user
-        target_first_name = target_user.first_name  # Оголошення target_first_name
+        target_first_name = target_user.first_name
         target_name = f"{target_first_name} @{target_user.username}" if target_user.username else target_first_name
         await update.message.reply_text(
             f"{user_name} помурчав на вушко {target_name} 🐾 \nВсього мурчань: {murr_count}"
@@ -119,7 +119,9 @@ async def usik(update, context):
     change = round(random.uniform(-7, 7), 2)
     usik_lengths[user_id] = max(0.0, usik_lengths[user_id] + change)
 
-    await update.message.reply_text(f"{user_name}, твої вуса {'збільшились' if change > 0 else 'зменшились'} на {abs(change):.2f} мм.\n"f"Загальна довжина: {usik_lengths[user_id]:.2f} мм."
+    await update.message.reply_text(
+        f"{user_name}, твої вуса {'збільшились' if change > 0 else 'зменшились'} на {abs(change):.2f} мм.\n"
+        f"Загальна довжина: {usik_lengths[user_id]:.2f} мм."
     )
 
 # Функція створення Telegram Application
@@ -152,7 +154,7 @@ def main():
         except Exception as e:
             logger.error(f"Сталася помилка: {e}")
             logger.info("Перезапуск через 5 секунд...")
-            time.sleep(5)  # Затримка перед перезапуском
+            time.sleep(5)
             os.execv(sys.executable, ["python"] + sys.argv)
 
 if __name__ == "__main__":
