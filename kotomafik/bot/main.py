@@ -7,7 +7,7 @@ from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
 # Завантаження змінних середовища
 TOKEN = os.getenv("TOKEN")
-MONOBANK_API = os.getenv("MONOBANK_API")
+MONOBANK_API = os.getenv("MONOBANK")
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # URL вашого сервера
 JAR_LINK = "https://send.monobank.ua/jar/5yxJsnYG82"
 
@@ -110,11 +110,48 @@ async def balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # Команда /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "Ласкаво просимо! Використовуйте команди:\n"
+        "я хочу пітсу Використовуйте команди:\n"
         "/donate - щоб задонатити та отримати MurrCoins\n"
         "/balance - щоб перевірити ваш баланс\n"
         "/get <кількість> - щоб додати MurrCoins вручну (адміністративна команда)"
     )
+
+
+# Команда /spend
+async def spend(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Перевіряємо, чи є аргумент, який вказує кількість MurrCoins для витрати
+    if len(context.args) != 1 or not context.args[0].isdigit():
+        await update.message.reply_text("Вкажіть кількість MurrCoins, яку хочете витратити. Наприклад: /spend 10")
+        return
+
+    amount = int(context.args[0])
+    user_id = update.effective_user.id
+
+    # Отримуємо поточний баланс користувача
+    cursor.execute("SELECT murrcoins FROM users WHERE user_id = ?", (user_id,))
+    result = cursor.fetchone()
+
+    if not result:
+        await update.message.reply_text("У вас немає MurrCoins. Поповніть свій баланс!")
+        return
+
+    current_balance = result[0]
+
+    # Перевіряємо, чи вистачає балансу
+    if current_balance < amount:
+        await update.message.reply_text(
+            f"Недостатньо коштів! Ваш баланс: {current_balance} MurrCoins, а потрібно: {amount}."
+        )
+        return
+
+    # Знімаємо MurrCoins з балансу
+    cursor.execute(
+        "UPDATE users SET murrcoins = murrcoins - ? WHERE user_id = ?",
+        (amount, user_id),
+    )
+    conn.commit()
+
+    await update.message.reply_text(f"Ви витратили {amount} MurrCoins. Ваш новий баланс: {current_balance - amount} MurrCoins.")
 
 
 # Команда /get
@@ -143,6 +180,7 @@ async def start_telegram_bot():
     application.add_handler(CommandHandler("donate", donate))
     application.add_handler(CommandHandler("balance", balance))
     application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("spend", spend))
     application.add_handler(CommandHandler("get", get))
 
     # Налаштування вебхука
