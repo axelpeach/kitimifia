@@ -8,7 +8,7 @@ import asyncio
 
 # Налаштування для роботи з Monobank API та Telegram
 TOKEN = os.getenv("TOKEN")
-MONOBANK_API = os.getenv("MONOBANK_API")
+MONOBANK_API = os.getenv("MONOBANK")
 DATABASE_PATH = 'user_data.db'  # шлях до бази даних
 
 # Налаштування логування
