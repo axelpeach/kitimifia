@@ -170,8 +170,8 @@ async def spend(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Новий баланс: {new_balance} MurrCoins.\n"
         f"Загальна довжина вусів: {new_usik_length} мм."
     )
-
-application = ApplicationBuilder().token(TOKEN).build()
+async def start_telegram_bot():
+    application = ApplicationBuilder().token(TOKEN).build()
 
     # Реєстрація команд
     application.add_handler(CommandHandler("start", start))  # Додано /start
