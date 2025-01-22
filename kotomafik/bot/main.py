@@ -88,7 +88,7 @@ def update_usik_length(user_id: int, length: float):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     add_user(user.id, user.username or "невідомий котик")
-    await update.message.reply_text("Привіт! Я бот для донатів та вусів 🐾")
+    await update.message.reply_text("Привіт! Я в говно🐾")
 
 
 # Команда /donate
