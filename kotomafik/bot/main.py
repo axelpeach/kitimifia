@@ -2,9 +2,39 @@ import os
 import logging
 import random
 import json
+import requests
+from flask import Flask, request, jsonify
 from datetime import datetime, timedelta
 from telegram.ext import Application, CommandHandler
 
+# Зберігаємо дані у словнику
+user_data = {}
+
+app = Flask(__name__)
+
+# Тестові дані для зберігання інформації
+user_data = {}
+
+@app.route("/webhook", methods=["POST"])
+def webhook():
+    data = request.json
+
+    # Перевіряємо, чи це валідний запит
+    if not data or "data" not in data:
+        return jsonify({"status": "error", "message": "Неправильний формат запиту"}), 400
+
+    # Обробляємо транзакцію
+    transaction = data["data"]
+    account = transaction.get("account", "невідомий")
+    amount = transaction.get("amount", 0) / 100  # Сума транзакції в гривнях
+    user_id = account  # Наприклад, використовуємо рахунок як ідентифікатор
+
+    # Знаходимо користувача та оновлюємо баланс
+    if user_id not in user_data:
+        user_data[user_id] = {"balance": 0, "usik_length": 0}
+    user_data[user_id]["balance"] += amount
+
+    return jsonify({"status": "success"}), 200
 
 # Налаштування логування
 logging.basicConfig(
@@ -42,34 +72,55 @@ def save_data():
     with open(DATA_FILE, "w") as file:
         json.dump(user_data, file, indent=6)
 
-# Функція для генерації унікального ID для поповнення
-def generate_donation_id():
-    return str(random.randint(1000000000, 9999999999))
-
 # Команда для початку поповнення
 async def donate(update, context):
     user = update.effective_user
     user_id = str(user.id)
 
-    # Генеруємо унікальний ID для поповнення
-    donation_id = generate_donation_id()
+    # Генеруємо унікальний ID для доната
+    unique_id = f"{user_id}-{random.randint(1000, 9999)}"
 
-    # Створюємо посилання для поповнення через Monobank (це приклад, реальне посилання може бути іншим)
-    donation_link = f"https://monobank.ua/pay/{donation_id}"
-
-    # Записуємо унікальний ID та посилання на поповнення в дані користувача
+    # Додаємо користувача до словника, якщо його там ще немає
     if user_id not in user_data:
-        user_data[user_id] = {"balance": 0, "donations": {}}
+        user_data[user_id] = {"balance": 0, "usik_length": 0, "donation_id": unique_id}
+    else:
+        user_data[user_id]["donation_id"] = unique_id
 
-    user_data[user_id]["donations"][donation_id] = {"status": "pending", "amount": 0}
-    save_data()
+
 
     await update.message.reply_text(
-        f"Для поповнення вашого балансу, використовуйте цей ID та перейдіть за посиланням: \n"
-        f"Поповнити: {donation_link}\n"
-        f"Ваш Donation ID: {donation_id}\n"
-        f"Після поповнення на ваш баланс буде зараховано MurrCoins."
+        f"Щоб задонатити, натисни на посилання нижче:\n\n"
+        f"[Донат](<{monobank_link}>)\n\n"
+        f"1 грн = 1 MurrCoin 🌟. Після оплати MurrCoins буде автоматично зараховано!",
+        parse_mode="Markdown",
     )
+
+# Замініть URL на адресу вашого сервера
+WEBHOOK_URL = "https://kitimifia.onrender.com/webhook"
+
+# Отримуємо токен з середовища
+MONOBANK_TOKEN = os.getenv("MONOBANK_TOKEN")
+
+# Перевірка, чи є токен
+if MONOBANK_TOKEN is None:
+    print("Токен Monobank не знайдено в змінних середовища!")
+else:
+    print("Токен успішно отримано!")
+
+def register_webhook():
+    headers = {
+        "X-Token": MONOBANK_TOKEN,
+    }
+    data = {
+        "webHookUrl": WEBHOOK_URL
+    }
+
+    response = requests.post("https://api.monobank.ua/personal/webhook", headers=headers, json=data)
+
+    if response.status_code == 200:
+        print("Webhook успішно зареєстрований!")
+    else:
+        print(f"Помилка реєстрації вебхука: {response.text}")
 
 # Оновлення даних користувача
 def update_user(user):
@@ -83,42 +134,17 @@ def update_user(user):
             "first_name": user.first_name  # Зберігаємо ім'я користувача
         }
 
-def add_donation(user_id, amount):
-    user_id = str(user_id)
-    update_user(user_id)
-    # Нараховуємо MurrCoins
-    murrcoins = amount  # 1 грн = 1 MurrCoin
-    user_data[user_id]["murr_balance"] += murrcoins
-    # Покращення вусів (10 мм за 1 грн)
-    user_data[user_id]["usik_length"] += amount * 10
-    save_data()
-    logger.info(f"Користувач {user_id} отримав {murrcoins} MurrCoins і {amount * 10} мм за донат {amount} грн.")
-
-# Функція для оновлення статусу донатера
-def update_donator_status(user_id):
-    if user_id not in user_data:
-        user_data[user_id] = {"mur_count": 0, "usik_length": 0.0, "murrcoins": 0, "is_donator": False}
-
-    if user_data[user_id]["murrcoins"] > 0:
-        user_data[user_id]["is_donator"] = True
-    else:
-        user_data[user_id]["is_donator"] = False
-
-    save_data()  # Зберігаємо зміни
-
 # Команда /balance
 async def balance(update, context):
     user = update.effective_user
     user_id = str(user.id)
 
-    # Оновлюємо дані користувача, якщо необхідно
-    update_user(user_id)
+    if user_id not in user_data:
+        user_data[user_id] = {"balance": 0, "usik_length": 0}
 
-    # Отримуємо баланс користувача
-    balance = user_data[user_id].get("balance", 0)
+    balance = user_data[user_id]["balance"]
 
-    # Виводимо баланс користувачу
-    await update.message.reply_text(f"Твій баланс: {balance} Murrcoins 🐾")
+    await update.message.reply_text(f"Ваш баланс: {balance:.2f} MurrCoins 🌟")
 
 # Команда /start
 async def start(update, context):
@@ -262,18 +288,17 @@ async def spend(update, context):
     user = update.effective_user
     user_id = str(user.id)
 
-    # Перевіряємо, чи вказана кількість MurrCoins для витрати
+    # Додаємо користувача до словника, якщо його там ще немає
+    if user_id not in user_data:
+        user_data[user_id] = {"balance": 0, "usik_length": 0}
+
+    # Перевіряємо, чи вказана кількість MurrCoins
     if len(context.args) != 1 or not context.args[0].isdigit():
         await update.message.reply_text("Будь ласка, вкажи кількість MurrCoins, які ти хочеш витратити. Наприклад, /spend 10.")
         return
 
-    amount = int(context.args[0])  # Сума, яку користувач хоче витратити
-
-    # Оновлюємо дані користувача
-    update_user(user_id)
-
-    # Отримуємо поточний баланс користувача
-    balance = user_data[user_id].get("balance", 0)
+    amount = int(context.args[0])
+    balance = user_data[user_id]["balance"]
 
     # Перевіряємо, чи достатньо монет
     if balance < amount:
@@ -284,15 +309,20 @@ async def spend(update, context):
 
     # Знімаємо монети з балансу та додаємо довжину вусів
     user_data[user_id]["balance"] -= amount
-    user_data[user_id]["usik_length"] += amount * 5  # Додаємо 5 мм за кожен витрачений MurrCoin
-    save_data()
+    user_data[user_id]["usik_length"] += amount * 5
 
-    # Повідомляємо про успішну витрату
-    await update.message.reply_text(
-        f"Ти витратив {amount} MurrCoins і твої вуса виросли на {amount * 5} мм! 🐾\n"
+    response = (
+        f"Ти витратив {amount} MurrCoins, і твої вуса виросли на {amount * 5} мм! 🐾\n"
         f"Тепер твій баланс: {user_data[user_id]['balance']} MurrCoins.\n"
         f"Загальна довжина твоїх вусів: {user_data[user_id]['usik_length']:.2f} мм."
     )
+
+    # Додаємо позначку донатора
+    if "🌟" not in user_data[user_id]:
+        user_data[user_id]["donator"] = True
+        response += "\nВітаємо! Ви отримали значок 🌟 за внесок у розвиток вусів!"
+
+    await update.message.reply_text(response)
 
 # Запуск бота
 def main():
@@ -313,4 +343,5 @@ def main():
     application.run_polling()
 
 if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)
     main()
