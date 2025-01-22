@@ -126,7 +126,6 @@ async def spend(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # Основний код бота
 async def start_telegram_bot():application = ApplicationBuilder().token(TOKEN).build()
-
     # Реєстрація команд
     application.add_handler(CommandHandler("donate", donate))
     application.add_handler(CommandHandler("balance", balance))
