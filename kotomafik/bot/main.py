@@ -4,10 +4,10 @@ import requests
 import time
 import os
 from telegram import Update
-from telegram.ext import Updater, CommandHandler, CallbackContext
+from telegram.ext import Application, CommandHandler, ContextTypes
 
 # Отримуємо змінні середовища для токенів
-TOKEN = os.getenv("TOKEN")
+TOKEN = os.getenv("TELEGRAM")
 MONOBANK_API = os.getenv("MONOBANK")
 MONOBANK_CARD_NUMBER = os.getenv("MONOBANK_CARD_NUMBER")
 
@@ -20,7 +20,7 @@ def generate_comment_code():
     return ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
 
 # Команда /donate
-async def donate(update: Update, context: CallbackContext):
+async def donate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     user_id = str(user.id)
 
@@ -41,7 +41,7 @@ async def donate(update: Update, context: CallbackContext):
     )
 
 # Команда /balance
-async def balance(update: Update, context: CallbackContext):
+async def balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     user_id = str(user.id)
 
@@ -53,7 +53,7 @@ async def balance(update: Update, context: CallbackContext):
     )
 
 # Команда /spend
-async def spend(update: Update, context: CallbackContext):
+async def spend(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     user_id = str(user.id)
 
@@ -111,17 +111,15 @@ def monitor_donations():
 
 # Налаштування бота
 def start_bot():
-    updater = Updater(TOKEN, use_context=True)
-    dispatcher = updater.dispatcher
+    application = Application.builder().token(TOKEN).build()
 
     # Додаємо обробники команд
-    dispatcher.add_handler(CommandHandler('donate', donate))
-    dispatcher.add_handler(CommandHandler('balance', balance))
-    dispatcher.add_handler(CommandHandler('spend', spend))
+    application.add_handler(CommandHandler('donate', donate))
+    application.add_handler(CommandHandler('balance', balance))
+    application.add_handler(CommandHandler('spend', spend))
 
     # Запускаємо бота
-    updater.start_polling()
-    updater.idle()
+    application.run_polling()
 
 if __name__ == '__main__':
     # Запуск моніторингу донатів у фоновому режимі
