@@ -1,6 +1,8 @@
 import os
 import sqlite3
 import asyncio
+import requests
+from threading import Thread
 from flask import Flask, request, jsonify
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
@@ -32,7 +34,9 @@ conn.commit()
 
 # Реєстрація вебхука в Монобанку
 def register_monobank_webhook():
-    import requests
+    if not MONOBANK_API:
+        print("Помилка: MONOBANK_API не встановлено у середовищі!")
+        return
 
     headers = {"X-Token": MONOBANK_API, "Content-Type": "application/json"}
     data = {"webHookUrl": f"{WEBHOOK_URL}/monobank-webhook"}
@@ -121,8 +125,7 @@ async def spend(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # Основний код бота
-async def main():
-    application = ApplicationBuilder().token(TOKEN).build()
+async def start_telegram_bot():application = ApplicationBuilder().token(TOKEN).build()
 
     # Реєстрація команд
     application.add_handler(CommandHandler("donate", donate))
@@ -133,6 +136,16 @@ async def main():
     await application.run_polling()
 
 
+def run_flask():
+    app.run(host="0.0.0.0", port=5000)
+
+
 if __name__ == "__main__":
     register_monobank_webhook()  # Реєстрація вебхука для Монобанку
-    asyncio.run(main())
+
+    # Запуск Flask-сервера в окремому потоці
+    flask_thread = Thread(target=run_flask, daemon=True)
+    flask_thread.start()
+
+    # Запуск Telegram бота
+    asyncio.run(start_telegram_bot())
