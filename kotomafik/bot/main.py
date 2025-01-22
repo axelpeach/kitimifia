@@ -145,11 +145,10 @@ async def spend(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("У вас недостатньо MurrCoins для цієї витрати.")
 
-# Основна функція для запуску бота
-async def main():
-    # Налаштування Telegram бота
-    application = Application.builder().token(TOKEN).build()
-
+def main()
+    token = os.getenv("TOKEN")
+    application = Application.builder().token(token).build()
+  
     # Додаємо обробники команд
     application.add_handler(CommandHandler("donate", donate))
     application.add_handler(CommandHandler("balance", balance))
