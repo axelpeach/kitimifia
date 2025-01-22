@@ -7,12 +7,12 @@ from telegram.ext import (
     CommandHandler,
     ContextTypes,
     CallbackContext,
+    JobQueue,
 )
-from telegram.ext.jobqueue import JobQueue
 
 # Завантаження змінних середовища
 TOKEN = os.getenv("TOKEN")
-MONOBANK_API = os.getenv("MONOBANK")
+MONOBANK_API = os.getenv("MONOBANK_API")
 JAR_LINK = "https://send.monobank.ua/jar/5yxJsnYG82"
 
 # Підключення до SQLite
@@ -71,7 +71,7 @@ def update_usik_length(user_id: int, length: float):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     add_user(user.id, user.username or "невідомий котик")
-    await update.message.reply_text("Привіт! Я бот в говно 🐾")
+    await update.message.reply_text("Привіт! Я в говно 🐾")
 
 
 # Команда /donate
@@ -138,19 +138,15 @@ async def check_donations(context: CallbackContext):
 def main():
     application = ApplicationBuilder().token(TOKEN).build()
 
-    # Додати команди
+# Додати команди
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("donate", donate))
     application.add_handler(CommandHandler("balance", balance))
     application.add_handler(CommandHandler("spend", spend))
 
     # Налаштування JobQueue
-    job_queue = JobQueue()
-    job_queue.set_dispatcher(application.dispatcher)
+    job_queue = application.job_queue
     job_queue.run_repeating(check_donations, interval=60, first=10)
-
-    # Запуск JobQueue
-    job_queue.start()
 
     # Запуск бота
     application.run_polling()
