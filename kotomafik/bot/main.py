@@ -144,7 +144,8 @@ def check_donations():
     response = requests.get("https://api.monobank.ua/personal/statement/0", headers=headers)
     if response.status_code == 200:
         transactions = response.json()
-        for transaction in transactions:if "comment" in transaction and transaction["comment"].isdigit():
+        for transaction in transactions:
+            if "comment" in transaction and transaction["comment"].isdigit():
                 user_id = int(transaction["comment"])
                 amount = transaction["amount"] // 100
                 update_balance(user_id, amount)
