@@ -1,150 +1,139 @@
-import random
-import string
-import requests
-import time
 import os
+import sqlite3
+import logging
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
+import requests
 
-# Отримуємо змінні середовища для токенів
+# Завантажуємо змінні середовища безпосередньо з Render
 TOKEN = os.getenv("TOKEN")
 MONOBANK_API = os.getenv("MONOBANK")
-MONOBANK_CARD_NUMBER = os.getenv("MONOBANK_CARD_NUMBER")
 
-# Зміст даних користувачів
-user_data = {}
-donations = {}
+# Налаштування логування
+logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+                    level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-# Генерація випадкового коду для коментаря
-def generate_comment_code():
-    return ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+# Створення та підключення до бази даних SQLite
+def create_db():
+    conn = sqlite3.connect("user_data.db")
+    cursor = conn.cursor()
+    
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS users (
+        user_id TEXT PRIMARY KEY,
+        balance INTEGER DEFAULT 0,
+        usik_length REAL DEFAULT 0
+    )
+    """)
+    conn.commit()
+    conn.close()
 
-# Моніторинг платежу
-async def monitor_donations():
-    while True:
-        for user_id, donation in donations.items():
-            # Отримуємо інформацію про транзакції
-            transactions = get_transactions_from_monobank(donation['comment_code'])
+# Додавання або оновлення користувача
+def add_user(user_id, balance, usik_length):
+    conn = sqlite3.connect("user_data.db")
+    cursor = conn.cursor()
 
-            # Якщо транзакція є і сума відповідає тому, що ми очікуємо
-            if transactions:
-                transaction = transactions[0]  # Вибираємо першу транзакцію
-                if transaction["amount"] >= 10:  # Перевіряємо, що сума більше або дорівнює 10 грн
-                    # Нараховуємо MurrCoins
-                    user_data[user_id]["balance"] += transaction["amount"]  # Нараховуємо стільки муркоїнів, скільки грн було поповнено
+    cursor.execute("""
+    INSERT OR REPLACE INTO users (user_id, balance, usik_length)
+    VALUES (?, ?, ?)
+    """, (user_id, balance, usik_length))
 
-                    await bot.send_message(user_id, f"Ваш донат на суму {transaction['amount']} грн був зарахований! Ви отримали {transaction['amount']} MurrCoins!")
+    conn.commit()
+    conn.close()
 
-        await asyncio.sleep(60)  # Чекаємо 1 хвилину перед наступною перевіркою
+# Отримання даних користувача
+def get_user_data(user_id):
+    conn = sqlite3.connect("user_data.db")
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT * FROM users WHERE user_id = ?", (user_id,))
+    data = cursor.fetchone()
+    conn.close()
+    return data
 
 # Команда /donate
 async def donate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     user_id = str(user.id)
-
-    # Генерація випадкового коду для коментаря
-    comment_code = generate_comment_code()
-
-    # Зберігаємо код для моніторингу
-    donations[user_id] = {"comment_code": comment_code, "amount_donated": 0}
-
-    # Нове посилання на банку Monobank
-    monobank_url = "https://send.monobank.ua/jar/5yxJsnYG82"
-
-    await update.message.reply_text(
-        f"Дякуємо за бажання зробити донат! 🤝\n"
-        f"Будь ласка, зроби переказ на банківську картку Monobank за посиланням нижче:\n"
-        f"{monobank_url}\n"
-        f"Не забудь вказати код коментаря: {comment_code}"
-    )
+    
+    # Повідомлення з посиланням на банку
+    donate_link = "https://send.monobank.ua/jar/5yxJsnYG82"
+    await update.message.reply_text(f"Щоб зробити донат, використай це посилання: {donate_link}. У коментарі вкажи свій ID: {user_id}.")
 
 # Команда /balance
 async def balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     user_id = str(user.id)
 
-    # Отримуємо поточний баланс муркоїнів
-    balance = user_data.get(user_id, {}).get("balance", 0)
+    # Отримуємо дані користувача з бази
+    data = get_user_data(user_id)
 
-    await update.message.reply_text(
-        f"Твій поточний баланс муркоїнів: {balance} MurrCoins."
-    )
+    if data:
+        balance = data[1]
+        usik_length = data[2]
+        await update.message.reply_text(f"Твій баланс: {balance} MurrCoins.\nДовжина вусів: {usik_length:.2f} мм.")
+    else:
+        await update.message.reply_text("Ти ще не зробив донатів, будь ласка, зроби це через команду /donate.")
 
 # Команда /spend
 async def spend(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     user_id = str(user.id)
 
-    # Перевіряємо, скільки муркоїнів користувач хоче витратити
+    # Перевірка наявності аргументу з кількістю MurrCoins для витрати
     if len(context.args) != 1 or not context.args[0].isdigit():
-        await update.message.reply_text("Будь ласка, вкажіть кількість MurrCoins для витрати. Наприклад, /spend 10.")
+        await update.message.reply_text("Будь ласка, вкажи кількість MurrCoins, які ти хочеш витратити. Наприклад, /spend 10.")
         return
 
     amount = int(context.args[0])
 
-    # Отримуємо поточний баланс користувача
-    balance = user_data.get(user_id, {}).get("balance", 0)
+    # Отримуємо дані користувача з бази
+    data = get_user_data(user_id)
 
+    if not data:
+        await update.message.reply_text("У тебе немає жодних муркоїнів. Спершу зроби донат.")
+        return
+
+    balance = data[1]
+
+    # Перевіряємо, чи достатньо монет
     if balance < amount:
         await update.message.reply_text(f"У тебе недостатньо MurrCoins для цієї витрати. Твій баланс: {balance} MurrCoins.")
         return
 
-    # Зменшуємо баланс і збільшуємо довжину вусів
-    user_data[user_id]["balance"] -= amount
-    user_data[user_id]["usik_length"] += amount * 5  # 5 мм за кожен витрачений MurrCoin
+    # Знімаємо монети з балансу та додаємо довжину вусів
+    usik_length = data[2]
+    new_usik_length = usik_length + (amount * 5)  # Додаємо 5 мм за кожен витрачений MurrCoin
+    new_balance = balance - amount
 
+    # Оновлюємо дані користувача в базі
+    add_user(user_id, new_balance, new_usik_length)
+
+    # Повідомлення про успішну витрату
     await update.message.reply_text(
-        f"Ти витратив {amount} MurrCoins, і твої вуса виросли на {amount * 5} мм! 🐾\n"
-        f"Тепер твій баланс: {user_data[user_id]['balance']} MurrCoins.\n"
-        f"Загальна довжина твоїх вусів: {user_data[user_id]['usik_length']} мм."
+        f"Ти витратив {amount} MurrCoins і твої вуса виросли на {amount * 5} мм! 🐾\n"
+        f"Тепер твій баланс: {new_balance} MurrCoins.\n"
+        f"Загальна довжина твоїх вусів: {new_usik_length:.2f} мм."
     )
 
-# Функція для моніторингу донатів
-def monitor_donations():
-    while True:
-        for user_id, donation in donations.items():
-            comment_code = donation["comment_code"]
+# Запуск бота
+async def start_bot():
+    # Створюємо базу даних, якщо її ще немає
+    create_db()
 
-            # Отримуємо дані про транзакції з Monobank API
-            response = requests.get(f"https://api.monobank.ua/p2p/{MONOBANK_CARD_NUMBER}/transactions",
-                                    headers={"Authorization": f"Bearer {MONOBANK_API}"})
-            transactions = response.json()
-
-            for transaction in transactions:
-                if transaction.get('comment') == comment_code:
-                    # Якщо сума донату збігається з коментарем, додаємо MurrCoins
-                    amount = transaction['amount'] / 100  # Переводимо в гривні (Monobank API дає копійки)
-                    if user_id not in user_data:
-                        user_data[user_id] = {"balance": 0, "usik_length": 0}
-
-                    user_data[user_id]["balance"] += amount
-                    donations[user_id]["amount_donated"] += amount
-
-                    # Повідомляємо користувача про поповнення
-                    context.bot.send_message(user_id, f"Ти отримав {amount} MurrCoins за донат на {comment_code}.")
-                    break
-
-        # Чекаємо 10 секунд перед наступною перевіркою
-        time.sleep(10)
-
-# Налаштування бота
-def start_bot():
+    # Налаштовуємо бота
     application = Application.builder().token(TOKEN).build()
 
     # Додаємо обробники команд
-    application.add_handler(CommandHandler('donate', donate))
-    application.add_handler(CommandHandler('balance', balance))
-    application.add_handler(CommandHandler('spend', spend))
-
-    # Запускаємо бота
-    application.run_polling()
-
-if __name__ == '__main__':
-    # Запуск моніторингу донатів у фоновому режимі
-    import threading
-    donation_thread = threading.Thread(target=monitor_donations)
-    donation_thread.daemon = True
-    donation_thread.start()
+    application.add_handler(CommandHandler("donate", donate))
+    application.add_handler(CommandHandler("balance", balance))
+    application.add_handler(CommandHandler("spend", spend))
 
     # Запуск бота
-    start_bot()
+    await application.run_polling()
+
+# Запуск бота
+if __name__ == "__main__":
+    import asyncio
+    asyncio.run(start_bot())
