@@ -4,11 +4,10 @@ import logging
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 import requests
-import asyncio
 
 # Завантажуємо змінні середовища безпосередньо з Render
 TOKEN = os.getenv("TOKEN")
-MONOBANK_API = os.getenv("MONOBANK")
+MONOBANK_API = os.getenv("MONOBANK_API")
 
 # Налаштування логування
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -119,7 +118,7 @@ async def spend(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 # Запуск бота
-async def start_bot():
+def main():
     # Створюємо базу даних, якщо її ще немає
     create_db()
 
@@ -132,11 +131,8 @@ async def start_bot():
     application.add_handler(CommandHandler("spend", spend))
 
     # Запуск бота
-    await application.run_polling()
+    application.run_polling()
 
 # Запуск бота
 if __name__ == "__main__":
-    try:
-        asyncio.run(start_bot())  # Запуск асинхронної задачі
-    except RuntimeError as e:
-        print(f"Error occurred: {e}")
+    main()
