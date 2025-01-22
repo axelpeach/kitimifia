@@ -4,6 +4,7 @@ import logging
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 import requests
+import asyncio
 
 # Завантажуємо змінні середовища безпосередньо з Render
 TOKEN = os.getenv("TOKEN")
@@ -135,5 +136,7 @@ async def start_bot():
 
 # Запуск бота
 if __name__ == "__main__":
-    import asyncio
-    asyncio.run(start_bot())
+    try:
+        asyncio.run(start_bot())  # Запуск асинхронної задачі
+    except RuntimeError as e:
+        print(f"Error occurred: {e}")
