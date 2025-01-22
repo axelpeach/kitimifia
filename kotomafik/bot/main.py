@@ -27,11 +27,11 @@ async def donate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Генерація випадкового коду для коментаря
     comment_code = generate_comment_code()
 
-    # Генеруємо посилання на Monobank
-    monobank_url = f"https://api.monobank.ua/p2p/{MONOBANK_CARD_NUMBER}?amount={{amount}}&comment={comment_code}"
-
     # Зберігаємо код для моніторингу
     donations[user_id] = {"comment_code": comment_code, "amount_donated": 0}
+
+    # Нове посилання на банку Monobank
+    monobank_url = "https://send.monobank.ua/jar/5yxJsnYG82"
 
     await update.message.reply_text(
         f"Дякуємо за бажання зробити донат! 🤝\n"
