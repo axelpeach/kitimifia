@@ -159,5 +159,4 @@ async def main():
     await application.run_polling()
 
 if __name__ == "__main__":
-    # Тепер запускаємо без виклику async run для ініціалізації додатку
-    asyncio.run(main())
+    main()
