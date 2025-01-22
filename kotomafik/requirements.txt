@@ -1,7 +1,4 @@
 python-telegram-bot[webhooks]==21.7
-aiohttp
 asyncio
-fastapi
-uvicorn
 nest_asyncio
-flask
+
