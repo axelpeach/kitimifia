@@ -1,161 +1,170 @@
 import os
-import requests
 import sqlite3
-import logging
-from telegram import Update
-from telegram.ext import Application, CommandHandler, ContextTypes
-import asyncio
+import requests
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import (
+    ApplicationBuilder,
+    CommandHandler,
+    CallbackQueryHandler,
+    ContextTypes,
+)
 
-# Налаштування для роботи з Monobank API та Telegram
-TOKEN = os.getenv("TOKEN")
-MONOBANK_API = os.getenv("MONOBANK")
-DATABASE_PATH = 'user_data.db'  # шлях до бази даних
+# Завантажуємо змінні середовища
+TOKEN = os.getenv("TOKEN")  # Telegram Bot Token
+MONOBANK_API = os.getenv("MONOBANK_API")  # Monobank API Token
+JAR_LINK = "https://send.monobank.ua/jar/5yxJsnYG82"  # Посилання на банку
 
-# Налаштування логування
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                    level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Підключення до бази даних
+DB_NAME = "bot_data.db"
+conn = sqlite3.connect(DB_NAME, check_same_thread=False)
+cursor = conn.cursor()
 
-# Підключення до бази даних SQLite
-def get_db_connection():
-    conn = sqlite3.connect(DATABASE_PATH)
-    return conn
+# Ініціалізація таблиці
+cursor.execute(
+    """
+    CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY,
+        username TEXT,
+        balance INTEGER DEFAULT 0,
+        usik_length REAL DEFAULT 0
+    )
+    """
+)
+conn.commit()
 
-# Функція для отримання даних користувача з бази
-def get_user_data(user_id):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM users WHERE user_id = ?", (user_id,))
-    user = cursor.fetchone()
-    conn.close()
-    return user
 
-# Функція для додавання нового користувача в базу
-def add_user(user_id, balance, usik_length):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("INSERT INTO users (user_id, balance, usik_length) VALUES (?, ?, ?)", 
-                   (user_id, balance, usik_length))
+# Додати користувача до бази даних
+def add_user(user_id: int, username: str):
+    cursor.execute(
+        """
+        INSERT OR IGNORE INTO users (id, username)
+        VALUES (?, ?)
+        """,
+        (user_id, username),
+    )
     conn.commit()
-    conn.close()
 
-# Функція для оновлення балансу користувача
-def update_balance(user_id, balance):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("UPDATE users SET balance = ? WHERE user_id = ?", (balance, user_id))
+
+# Отримати інформацію про користувача
+def get_user(user_id: int):
+    cursor.execute(
+        """
+        SELECT username, balance, usik_length
+        FROM users
+        WHERE id = ?
+        """,
+        (user_id,),
+    )
+    return cursor.fetchone()
+
+
+# Оновити баланс користувача
+def update_balance(user_id: int, amount: int):
+    cursor.execute(
+        """
+        UPDATE users
+        SET balance = balance + ?
+        WHERE id = ?
+        """,
+        (amount, user_id),
+    )
     conn.commit()
-    conn.close()
 
-# Функція для отримання транзакцій з Monobank API
-def get_transactions():
-    url = "https://api.monobank.ua/personal/statement"
-    headers = {
-        "X-Token": MONOBANK_API
-    }
 
-    params = {
-        "from": "2025-01-01",  # Наприклад, з 1 січня
-        "to": "2025-01-22",  # до сьогодні
-    }
+# Оновити довжину вусів користувача
+def update_usik_length(user_id: int, length: float):
+    cursor.execute(
+        """
+        UPDATE users
+        SET usik_length = usik_length + ?
+        WHERE id = ?
+        """,
+        (length, user_id),
+    )
+    conn.commit()
 
-    response = requests.get(url, headers=headers, params=params)
 
-    if response.status_code == 200:
-        return response.json()
-    else:
-        logger.error("Error fetching transactions: %s", response.text)
-        return []
+# Команда /start
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    add_user(user.id, user.username or "невідомий котик")
+    await update.message.reply_text("Привіт! Я бот для донатів та вусів 🐾")
 
-# Функція для обробки донатів
-def process_donations():
-    transactions = get_transactions()
 
-    for transaction in transactions:
-        if transaction['comment']:
-            user_id = transaction['comment']  # Коментар містить ID користувача
-            if user_id.isdigit():
-                amount = transaction['sum'] // 10  # 10 грн = 1 муркоїн
-
-                # Оновлюємо баланс користувача
-                user_data = get_user_data(user_id)
-                if user_data:
-                    new_balance = user_data[1] + amount
-                    update_balance(user_id, new_balance)
-                    logger.info(f"User {user_id} has been credited {amount} MurrCoins.")
-                else:
-                    logger.info(f"User {user_id} not found in the database.")
-
-# Функція для запуску періодичного моніторингу транзакцій
-async def check_donations():
-    while True:
-        process_donations()
-        await asyncio.sleep(60)  # Перевірка кожні 60 секунд
-
-# Команда /donate для генерації посилання на Monobank
+# Команда /donate
 async def donate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
-    user_id = str(user.id)
+    add_user(user.id, user.username or "невідомий котик")
+    code = str(user.id)  # Використовуємо ID користувача як код
+    await update.message.reply_text(
+        f"Щоб задонатити, переходь за посиланням {JAR_LINK} і додай цей код у коментар: {code}"
+    )
 
-    # Генерація посилання для донату
-    link = "https://send.monobank.ua/jar/5yxJsnYG82"
-    comment = f"Ваш коментар: {user_id}"  # ID користувача у коментарі
 
-    response_text = f"Для того, щоб зробити донат, використовуйте це посилання:\n{link}\n\n" \
-                    f"Не забудьте вказати свій ID користувача ({user_id}) в коментарі до платежу."
-
-    await update.message.reply_text(response_text)
-
-# Команда /balance для перегляду балансу користувача
+# Команда /balance
 async def balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
-    user_id = str(user.id)
-
-    user_data = get_user_data(user_id)
-    if user_data:
-        balance = user_data[1]
-        await update.message.reply_text(f"Ваш баланс: {balance} MurrCoins.")
+    data = get_user(user.id)
+    if data:
+        username, balance, usik_length = data
+        await update.message.reply_text(
+            f"Твій баланс: {balance} MurrCoins 🪙\n"
+            f"Довжина вусів: {usik_length:.2f} мм 🐾"
+        )
     else:
-        await update.message.reply_text("Ви ще не зробили жодного донату. Спробуйте це зробити через /donate.")
+        await update.message.reply_text("Тебе не знайдено в системі!")
 
-  # Команда /spend для витрат муркоїнів на вуса
+
+# Команда /spend
 async def spend(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
-    user_id = str(user.id)
-
-    # Перевіряємо, чи вказана кількість MurrCoins для витрати
     if len(context.args) != 1 or not context.args[0].isdigit():
-        await update.message.reply_text("Будь ласка, вкажіть кількість MurrCoins, які ви хочете витратити.")
+        await update.message.reply_text("Вкажи кількість MurrCoins. Наприклад, /spend 10")
         return
 
     amount = int(context.args[0])
-
-    user_data = get_user_data(user_id)
-    if user_data and user_data[1] >= amount:
-        new_balance = user_data[1] - amount
-        new_usik_length = user_data[2] + (amount * 5)
-
-        # Оновлюємо базу даних
-        update_balance(user_id, new_balance)
-
-        # Оновлюємо довжину вусів (можна додати окрему функцію для оновлення)
-        update_balance(user_id, new_usik_length)
-
-        await update.message.reply_text(f"Ви витратили {amount} MurrCoins і ваші вуса виросли на {amount * 5} мм!")
+    data = get_user(user.id)
+    if data:
+        username, balance, usik_length = data
+        if balance >= amount:
+            update_balance(user.id, -amount)
+            update_usik_length(user.id, amount * 5)
+            await update.message.reply_text(
+                f"Ти витратив {amount} MurrCoins! Твої вуса виросли на {amount * 5} мм 🐾"
+            )
+        else:
+            await update.message.reply_text("Недостатньо MurrCoins!")
     else:
-        await update.message.reply_text("У вас недостатньо MurrCoins для цієї витрати.")
+        await update.message.reply_text("Тебе не знайдено в системі!")
 
+
+# Перевірка банку
+def check_donations():
+    headers = {"X-Token": MONOBANK_API}
+    response = requests.get("https://api.monobank.ua/personal/statement/0", headers=headers)
+    if response.status_code == 200:
+        transactions = response.json()
+        for transaction in transactions:if "comment" in transaction and transaction["comment"].isdigit():
+                user_id = int(transaction["comment"])
+                amount = transaction["amount"] // 100
+                update_balance(user_id, amount)
+
+
+# Запуск бота
 def main():
-    token = os.getenv("TOKEN")
-    application = Application.builder().token(token).build()
-  
-    # Додаємо обробники команд
+    application = ApplicationBuilder().token(TOKEN).build()
+
+    application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("donate", donate))
     application.add_handler(CommandHandler("balance", balance))
     application.add_handler(CommandHandler("spend", spend))
 
-    # Запускаємо бота
-    await application.run_polling()
+    application.job_queue.run_repeating(
+        lambda _: check_donations(), interval=60, first=10
+    )
+
+    application.run_polling()
+
 
 if __name__ == "__main__":
     main()
