@@ -5,8 +5,6 @@ import json
 from datetime import datetime, timedelta
 from telegram.ext import Application, CommandHandler
 
-# Стани
-SELECTING_RATING = 1
 
 # Налаштування логування
 logging.basicConfig(
@@ -74,14 +72,15 @@ async def donate(update, context):
     )
 
 # Оновлення даних користувача
-def update_user(user_id):
-    if str(user_id) not in user_data:
-        user_data[str(user_id)] = {
+def update_user(user):
+    user_id = str(user.id)
+    if user_id not in user_data:
+        user_data[user_id] = {
             "mur_count": 0,
             "usik_length": 0.0,
-            "balance": 0,  # Додаємо баланс при створенні нового користувача
-            "last_mur": None,
-            "last_usik": None,
+            "balance": 0,
+            "is_donator": False,
+            "first_name": user.first_name  # Зберігаємо ім'я користувача
         }
 
 def add_donation(user_id, amount):
@@ -214,21 +213,26 @@ async def usik(update, context):
 # Команда /top_murr
 async def top_murr(update, context):
     if not user_data:
-        await update.message.reply_text("Наразі рейтинг мурчалок пустий 🐾")
+        await update.message.reply_text("Наразі рейтинг мурчань пустий 🐾")
         return
 
+    # Сортуємо користувачів за кількістю мурчань
     sorted_murr = sorted(
-        [(user_id, data["mur_count"], data.get("is_donator", False)) for user_id, data in user_data.items()],
-        key=lambda x: x[1],
+        user_data.items(),
+        key=lambda x: x[1]["mur_count"],
         reverse=True
     )[:10]
+
+    # Формуємо текст рейтингу
     leaderboard = "\n".join(
         [
-            f"{i+1}. {'🌟' if is_donator else ''} Користувач {user_id} — {mur_count} мурчань"
-            for i, (user_id, mur_count, is_donator) in enumerate(sorted_murr)
+            f"{i+1}. {data['first_name']} — {data['mur_count']} мурчань"
+            for i, (user_id, data) in enumerate(sorted_murr)
         ]
     )
+
     await update.message.reply_text(f"🏆 Топ-10 мурчунів 🐾:\n{leaderboard}")
+
 
 # Команда /top_usik
 async def top_usik(update, context):
@@ -236,17 +240,21 @@ async def top_usik(update, context):
         await update.message.reply_text("Наразі рейтинг довжини вусів пустий 🐾")
         return
 
+    # Сортуємо користувачів за довжиною вусів
     sorted_usik = sorted(
-        [(user_id, data["usik_length"], data.get("is_donator", False)) for user_id, data in user_data.items()],
-        key=lambda x: x[1],
+        user_data.items(),
+        key=lambda x: x[1]["usik_length"],
         reverse=True
     )[:10]
+
+    # Формуємо текст рейтингу
     leaderboard = "\n".join(
         [
-            f"{i+1}. {'🌟' if is_donator else ''} Користувач {user_id} — {usik_length:.2f} мм"
-            for i, (user_id, usik_length, is_donator) in enumerate(sorted_usik)
+            f"{i+1}. {data['first_name']} — {data['usik_length']:.2f} мм"
+            for i, (user_id, data) in enumerate(sorted_usik)
         ]
     )
+
     await update.message.reply_text(f"🏆 Топ-10 вусанів 🐾:\n{leaderboard}")
 
 # Команда /spend
