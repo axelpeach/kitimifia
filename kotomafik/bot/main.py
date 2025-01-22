@@ -55,7 +55,12 @@ def monobank_webhook():
     if "data" in data:
         transaction = data["data"]
         comment = transaction.get("comment")
-        amount = transaction.get("amount") // 100  # Переводимо копійки в гривні
+        amount = transaction.get("amount")
+
+        if amount is None:
+            return jsonify({"status": "error", "message": "Missing 'amount' in transaction data"}), 400
+
+        amount = amount // 100  # Переводимо копійки в гривні
 
         if comment and comment.isdigit():
             user_id = int(comment)
@@ -70,7 +75,6 @@ def monobank_webhook():
             conn.commit()
 
     return jsonify({"status": "success"}), 200
-
 
 # Команди Telegram
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -89,7 +93,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     conn.commit()
 
     await update.message.reply_text(
-        f"Вітаємо в боті MurrCoin! 🐾\n"
+        f"купить мені surly corner 🐾\n"
         f"Доступні команди:\n"
         f"/donate - Отримати посилання для донатів.\n"
         f"/balance - Перевірити баланс MurrCoins.\n"
