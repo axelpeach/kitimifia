@@ -1,20 +1,21 @@
 import os
 import sqlite3
 import requests
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
-    CallbackQueryHandler,
     ContextTypes,
+    CallbackContext,
 )
+from telegram.ext.jobqueue import JobQueue
 
-# Завантажуємо змінні середовища
-TOKEN = os.getenv("TOKEN")  # Telegram Bot Token
-MONOBANK_API = os.getenv("MONOBANK")  # Monobank API Token
-JAR_LINK = "https://send.monobank.ua/jar/5yxJsnYG82"  # Посилання на банку
+# Завантаження змінних середовища
+TOKEN = os.getenv("TOKEN")
+MONOBANK_API = os.getenv("MONOBANK")
+JAR_LINK = "https://send.monobank.ua/jar/5yxJsnYG82"
 
-# Підключення до бази даних
+# Підключення до SQLite
 DB_NAME = "bot_data.db"
 conn = sqlite3.connect(DB_NAME, check_same_thread=False)
 cursor = conn.cursor()
@@ -33,53 +34,35 @@ cursor.execute(
 conn.commit()
 
 
-# Додати користувача до бази даних
+# Додати користувача
 def add_user(user_id: int, username: str):
     cursor.execute(
-        """
-        INSERT OR IGNORE INTO users (id, username)
-        VALUES (?, ?)
-        """,
+        "INSERT OR IGNORE INTO users (id, username) VALUES (?, ?)",
         (user_id, username),
     )
     conn.commit()
 
 
-# Отримати інформацію про користувача
+# Отримати користувача
 def get_user(user_id: int):
     cursor.execute(
-        """
-        SELECT username, balance, usik_length
-        FROM users
-        WHERE id = ?
-        """,
-        (user_id,),
+        "SELECT username, balance, usik_length FROM users WHERE id = ?", (user_id,)
     )
     return cursor.fetchone()
 
 
-# Оновити баланс користувача
+# Оновити баланс
 def update_balance(user_id: int, amount: int):
     cursor.execute(
-        """
-        UPDATE users
-        SET balance = balance + ?
-        WHERE id = ?
-        """,
-        (amount, user_id),
+        "UPDATE users SET balance = balance + ? WHERE id = ?", (amount, user_id)
     )
     conn.commit()
 
 
-# Оновити довжину вусів користувача
+# Оновити довжину вусів
 def update_usik_length(user_id: int, length: float):
     cursor.execute(
-        """
-        UPDATE users
-        SET usik_length = usik_length + ?
-        WHERE id = ?
-        """,
-        (length, user_id),
+        "UPDATE users SET usik_length = usik_length + ? WHERE id = ?", (length, user_id)
     )
     conn.commit()
 
@@ -88,14 +71,14 @@ def update_usik_length(user_id: int, length: float):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     add_user(user.id, user.username or "невідомий котик")
-    await update.message.reply_text("Привіт! Я в говно🐾")
+    await update.message.reply_text("Привіт! Я бот в говно 🐾")
 
 
 # Команда /donate
 async def donate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     add_user(user.id, user.username or "невідомий котик")
-    code = str(user.id)  # Використовуємо ID користувача як код
+    code = str(user.id)
     await update.message.reply_text(
         f"Щоб задонатити, переходь за посиланням {JAR_LINK} і додай цей код у коментар: {code}"
     )
@@ -138,8 +121,8 @@ async def spend(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Тебе не знайдено в системі!")
 
 
-# Перевірка банку
-def check_donations():
+# Перевірка донатів
+async def check_donations(context: CallbackContext):
     headers = {"X-Token": MONOBANK_API}
     response = requests.get("https://api.monobank.ua/personal/statement/0", headers=headers)
     if response.status_code == 200:
@@ -155,15 +138,21 @@ def check_donations():
 def main():
     application = ApplicationBuilder().token(TOKEN).build()
 
+    # Додати команди
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("donate", donate))
     application.add_handler(CommandHandler("balance", balance))
     application.add_handler(CommandHandler("spend", spend))
 
-    application.job_queue.run_repeating(
-        lambda _: check_donations(), interval=60, first=10
-    )
+    # Налаштування JobQueue
+    job_queue = JobQueue()
+    job_queue.set_dispatcher(application.dispatcher)
+    job_queue.run_repeating(check_donations, interval=60, first=10)
 
+    # Запуск JobQueue
+    job_queue.start()
+
+    # Запуск бота
     application.run_polling()
 
 
