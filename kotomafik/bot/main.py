@@ -1,6 +1,5 @@
 import os
 import sqlite3
-import asyncio
 import requests
 from threading import Thread
 from flask import Flask, request, jsonify
@@ -73,7 +72,7 @@ def monobank_webhook():
     return jsonify({"status": "success"}), 200
 
 
-# Команда /start
+# Команди Telegram
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     username = update.effective_user.username
@@ -90,7 +89,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     conn.commit()
 
     await update.message.reply_text(
-        f"Вітаємо в боті я в говно! 🐾\n"
+        f"Вітаємо в боті MurrCoin! 🐾\n"
         f"Доступні команди:\n"
         f"/donate - Отримати посилання для донатів.\n"
         f"/balance - Перевірити баланс MurrCoins.\n"
@@ -99,29 +98,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-# Команда /get
-async def get(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-
-    if len(context.args) != 1 or not context.args[0].isdigit():
-        await update.message.reply_text("Будь ласка, вкажіть кількість MurrCoins для нарахування. Наприклад, /get 10.")
-        return
-
-    amount = int(context.args[0])
-
-    cursor.execute(
-        """
-        INSERT INTO users (user_id, murrcoins)
-        VALUES (?, ?)
-        ON CONFLICT(user_id) DO UPDATE SET murrcoins = murrcoins + ?
-        """,
-        (user_id, amount, amount),
-    )
-    conn.commit()
-
-    await update.message.reply_text(f"Вам нараховано {amount} MurrCoins!")
-
-# Команда /donate
 async def donate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         f"Щоб задонатити, перейдіть за посиланням {JAR_LINK}.\n"
@@ -129,7 +105,6 @@ async def donate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-# Команда /balance
 async def balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     cursor.execute("SELECT murrcoins FROM users WHERE user_id = ?", (user_id,))
@@ -141,7 +116,6 @@ async def balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("У вас ще немає MurrCoins. Зробіть донат, щоб отримати їх!")
 
 
-# Команда /spend
 async def spend(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if len(context.args) != 1 or not context.args[0].isdigit():
@@ -170,32 +144,47 @@ async def spend(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Новий баланс: {new_balance} MurrCoins.\n"
         f"Загальна довжина вусів: {new_usik_length} мм."
     )
-async def start_telegram_bot():
+
+
+async def get(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+
+    if len(context.args) != 1 or not context.args[0].isdigit():
+        await update.message.reply_text("Будь ласка, вкажіть кількість MurrCoins для нарахування. Наприклад, /get 10.")
+        return
+
+    amount = int(context.args[0])
+
+    cursor.execute(
+        """
+        INSERT INTO users (user_id, murrcoins)
+        VALUES (?, ?)
+        ON CONFLICT(user_id) DO UPDATE SET murrcoins = murrcoins + ?
+        """,
+        (user_id, amount, amount),
+    )
+    conn.commit()
+
+    await update.message.reply_text(f"Вам нараховано {amount} MurrCoins!")
+
+
+# Запуск Telegram бота
+def start_telegram_bot():
     application = ApplicationBuilder().token(TOKEN).build()
 
-    # Реєстрація команд
-    application.add_handler(CommandHandler("start", start))  # Додано /start
+    application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("donate", donate))
     application.add_handler(CommandHandler("balance", balance))
     application.add_handler(CommandHandler("spend", spend))
-    application.add_handler(CommandHandler("get", get))  # Додано /get
+    application.add_handler(CommandHandler("get", get))
+
+    application.run_polling()
 
 
-    # Запуск бота
-    await application.run_polling()
-
-
-def run_flask():
-    app.run(host="0.0.0.0", port=5000)
-
-
+# Основний запуск
 if __name__ == "__main__":
-    register_monobank_webhook()  # Реєстрація вебхука для Монобанку
+    register_monobank_webhook()
 
-    # Запуск Flask-сервера в окремому потоці
-    flask_thread = Thread(target=run_flask, daemon=True)
-    flask_thread.start()
-
-    # Запуск Telegram бота
-    asyncio.run(start_telegram_bot())
-
+    # Запуск Flask-сервера та Telegram бота в різних потоках
+    Thread(target=app.run, kwargs={"host": "0.0.0.0", "port": 5000, "debug": False}).start()
+    start_telegram_bot()
