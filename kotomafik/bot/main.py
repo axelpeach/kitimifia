@@ -145,7 +145,7 @@ async def spend(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("У вас недостатньо MurrCoins для цієї витрати.")
 
-def main()
+def main():
     token = os.getenv("TOKEN")
     application = Application.builder().token(token).build()
   
