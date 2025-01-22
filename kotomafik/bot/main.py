@@ -1,12 +1,13 @@
 import os
 import sqlite3
+import asyncio
 from flask import Flask, request, jsonify
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
 # Завантаження змінних середовища
 TOKEN = os.getenv("TOKEN")
-MONOBANK_API = os.getenv("MONOBANK_API")
+MONOBANK_API = os.getenv("MONOBANK")
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # URL вашого сервера
 JAR_LINK = "https://send.monobank.ua/jar/5yxJsnYG82"
 
