@@ -11,7 +11,7 @@ from telegram.ext import (
 
 # Завантажуємо змінні середовища
 TOKEN = os.getenv("TOKEN")  # Telegram Bot Token
-MONOBANK_API = os.getenv("MONOBANK_API")  # Monobank API Token
+MONOBANK_API = os.getenv("MONOBANK")  # Monobank API Token
 JAR_LINK = "https://send.monobank.ua/jar/5yxJsnYG82"  # Посилання на банку
 
 # Підключення до бази даних
