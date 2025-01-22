@@ -3,12 +3,12 @@ import requests
 import sqlite3
 import logging
 from telegram import Update
-from telegram.ext import Updater, CommandHandler, CallbackContext
+from telegram.ext import Application, CommandHandler, ContextTypes
 import asyncio
 
 # Налаштування для роботи з Monobank API та Telegram
 TOKEN = os.getenv("TOKEN")
-MONOBANK_API = os.getenv("MONOBANK")
+MONOBANK_API = os.getenv("MONOBANK_API")
 DATABASE_PATH = 'user_data.db'  # шлях до бази даних
 
 # Налаштування логування
@@ -93,7 +93,7 @@ async def check_donations():
         await asyncio.sleep(60)  # Перевірка кожні 60 секунд
 
 # Команда /donate для генерації посилання на Monobank
-def donate(update: Update, context: CallbackContext):
+async def donate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     user_id = str(user.id)
 
@@ -104,28 +104,27 @@ def donate(update: Update, context: CallbackContext):
     response_text = f"Для того, щоб зробити донат, використовуйте це посилання:\n{link}\n\n" \
                     f"Не забудьте вказати свій ID користувача ({user_id}) в коментарі до платежу."
 
-    update.message.reply_text(response_text)
+    await update.message.reply_text(response_text)
 
 # Команда /balance для перегляду балансу користувача
-def balance(update: Update, context: CallbackContext):
+async def balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     user_id = str(user.id)
 
     user_data = get_user_data(user_id)
     if user_data:
         balance = user_data[1]
-        update.message.reply_text(f"Ваш баланс: {balance} MurrCoins.")
+        await update.message.reply_text(f"Ваш баланс: {balance} MurrCoins.")
     else:
-        update.message.reply_text("Ви ще не зробили жодного донату. Спробуйте це зробити через /donate.")
-
-# Команда /spend для витрат муркоїнів на вуса
-def spend(update: Update, context: CallbackContext):
+        await update.message.reply_text("Ви ще не зробили жодного донату. Спробуйте це зробити через /donate.")
+      # Команда /spend для витрат муркоїнів на вуса
+async def spend(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     user_id = str(user.id)
 
     # Перевіряємо, чи вказана кількість MurrCoins для витрати
     if len(context.args) != 1 or not context.args[0].isdigit():
-        update.message.reply_text("Будь ласка, вкажіть кількість MurrCoins, які ви хочете витратити.")
+        await update.message.reply_text("Будь ласка, вкажіть кількість MurrCoins, які ви хочете витратити.")
         return
 
     amount = int(context.args[0])
@@ -137,29 +136,31 @@ def spend(update: Update, context: CallbackContext):
 
         # Оновлюємо базу даних
         update_balance(user_id, new_balance)
-        update_user_length(user_id, new_usik_length)
 
-        update.message.reply_text(f"Ви витратили {amount} MurrCoins і ваші вуса виросли на {amount * 5} мм!")
+        # Оновлюємо довжину вусів (можна додати окрему функцію для оновлення)
+        update_balance(user_id, new_usik_length)
+
+        await update.message.reply_text(f"Ви витратили {amount} MurrCoins і ваші вуса виросли на {amount * 5} мм!")
     else:
-        update.message.reply_text("У вас недостатньо MurrCoins для цієї витрати.")
+        await update.message.reply_text("У вас недостатньо MurrCoins для цієї витрати.")
 
 # Основна функція для запуску бота
-def start_bot():
-    updater = Updater(TOKEN)
+async def main():
+    # Налаштування Telegram бота
+    application = Application.builder().token(TOKEN).build()
 
-    dp = updater.dispatcher
-    dp.add_handler(CommandHandler("donate", donate))
-    dp.add_handler(CommandHandler("balance", balance))
-    dp.add_handler(CommandHandler("spend", spend))
+    # Додаємо обробники команд
+    application.add_handler(CommandHandler("donate", donate))
+    application.add_handler(CommandHandler("balance", balance))
+    application.add_handler(CommandHandler("spend", spend))
 
     # Запускаємо бота
-    updater.start_polling()
-    updater.idle()
+    await application.initialize()
 
-# Запуск моніторингу донатів
-async def main():
-    await check_donations()
+    # Запускаємо моніторинг донатів
+    asyncio.create_task(check_donations())
 
-if __name__ == '__main__':
-    start_bot()
+    await application.run_polling()
+
+if name == "__main__":
     asyncio.run(main())
