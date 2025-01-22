@@ -1,21 +1,20 @@
 import os
 import sqlite3
-import asyncio
-import requests
+from flask import Flask, request, jsonify
 from telegram import Update
-from telegram.ext import (
-    ApplicationBuilder,
-    CommandHandler,
-    ContextTypes,
-)
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
 # Завантаження змінних середовища
 TOKEN = os.getenv("TOKEN")
-MONOBANK_API = os.getenv("MONOBANK")
+MONOBANK_API = os.getenv("MONOBANK_API")
+WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # URL вашого сервера
 JAR_LINK = "https://send.monobank.ua/jar/5yxJsnYG82"
 
+# Ініціалізація Flask для обробки вебхуків
+app = Flask(__name__)
+
 # Ініціалізація бази даних
-conn = sqlite3.connect("bot_data.db")
+conn = sqlite3.connect("bot_data.db", check_same_thread=False)
 cursor = conn.cursor()
 cursor.execute(
     """
@@ -30,31 +29,43 @@ cursor.execute(
 conn.commit()
 
 
-# Перевірка донатів
-async def check_donations(application):
-    while True:
-        try:
-            response = requests.get(
-                "https://api.monobank.ua/personal/statement/0",
-                headers={"X-Token": MONOBANK_API},
-            )
-            if response.status_code == 200:
-                transactions = response.json()
-                for transaction in transactions:
-                    if "comment" in transaction:
-                        comment = transaction["comment"]
-                        amount = transaction["amount"] // 100  # сума в гривнях
-                        user_id = int(comment) if comment.isdigit() else None
+# Реєстрація вебхука в Монобанку
+def register_monobank_webhook():
+    import requests
 
-                        if user_id:
-                            cursor.execute(
-                                "UPDATE users SET murrcoins = murrcoins + ? WHERE user_id = ?",
-                                (amount, user_id),
-                            )
-                            conn.commit()
-        except Exception as e:
-            print(f"Error checking donations: {e}")
-        await asyncio.sleep(60)  # Перевіряти кожну хвилину
+    headers = {"X-Token": MONOBANK_API, "Content-Type": "application/json"}
+    data = {"webHookUrl": f"{WEBHOOK_URL}/monobank-webhook"}
+    response = requests.post("https://api.monobank.ua/personal/webhook", json=data, headers=headers)
+
+    if response.status_code == 200:
+        print("Вебхук для Монобанку зареєстровано успішно!")
+    else:
+        print(f"Помилка реєстрації вебхука: {response.text}")
+
+
+# Обробник для вебхука Монобанку
+@app.route("/monobank-webhook", methods=["POST"])
+def monobank_webhook():
+    data = request.json
+
+    if "data" in data:
+        transaction = data["data"]
+        comment = transaction.get("comment")
+        amount = transaction.get("amount") // 100  # Переводимо копійки в гривні
+
+        if comment and comment.isdigit():
+            user_id = int(comment)
+            cursor.execute(
+                """
+                INSERT INTO users (user_id, murrcoins)
+                VALUES (?, ?)
+                ON CONFLICT(user_id) DO UPDATE SET murrcoins = murrcoins + ?
+                """,
+                (user_id, amount, amount),
+            )
+            conn.commit()
+
+    return jsonify({"status": "success"}), 200
 
 
 # Команда /donate
@@ -108,7 +119,7 @@ async def spend(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-# Ініціалізація бота
+# Основний код бота
 async def main():
     application = ApplicationBuilder().token(TOKEN).build()
 
@@ -117,12 +128,10 @@ async def main():
     application.add_handler(CommandHandler("balance", balance))
     application.add_handler(CommandHandler("spend", spend))
 
-    # Запуск перевірки донатів у фоновому режимі
-    asyncio.create_task(check_donations(application))
-
     # Запуск бота
     await application.run_polling()
 
 
 if __name__ == "__main__":
+    register_monobank_webhook()  # Реєстрація вебхука для Монобанку
     asyncio.run(main())
