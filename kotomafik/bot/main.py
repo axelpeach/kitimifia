@@ -7,7 +7,7 @@ from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
 # Отримуємо змінні середовища для токенів
-TOKEN = os.getenv("TELEGRAM")
+TOKEN = os.getenv("TOKEN")
 MONOBANK_API = os.getenv("MONOBANK")
 MONOBANK_CARD_NUMBER = os.getenv("MONOBANK_CARD_NUMBER")
 
