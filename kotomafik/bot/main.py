@@ -1,6 +1,5 @@
 import os
 import sqlite3
-import asyncio
 import requests
 from flask import Flask, request, jsonify
 from telegram import Update
@@ -8,11 +7,11 @@ from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
 # Завантаження змінних середовища
 TOKEN = os.getenv("TOKEN")
-MONOBANK_API = os.getenv("MONOBANK")
+MONOBANK_API = os.getenv("MONOBANK_API")
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # URL вашого сервера
 JAR_LINK = "https://send.monobank.ua/jar/5yxJsnYG82"
 
-# Ініціалізація Flask для обробки вебхуків
+# Ініціалізація Flask
 app = Flask(__name__)
 
 # Ініціалізація бази даних
@@ -30,6 +29,8 @@ cursor.execute(
 )
 conn.commit()
 
+# Ініціалізація Telegram Application
+application = ApplicationBuilder().token(TOKEN).build()
 
 # Реєстрація вебхука в Монобанку
 def register_monobank_webhook():
@@ -77,6 +78,15 @@ def monobank_webhook():
     return jsonify({"status": "success"}), 200
 
 
+# Telegram Webhook (синхронний)
+@app.route("/telegram-webhook", methods=["POST"])
+def telegram_webhook():
+    json_update = request.get_json(force=True)
+    update = Update.de_json(json_update, application.bot)
+    application.update_queue.put(update)  # Додаємо в чергу оновлень
+    return jsonify({"status": "ok"})
+
+
 # Команда /donate
 async def donate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
@@ -111,9 +121,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def get(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if len(context.args) != 1 or not context.args[0].isdigit():
         await update.message.reply_text("Вкажіть кількість MurrCoins, яку хочете отримати. Наприклад: /get 10")
-        return
-
-    amount = int(context.args[0])
+        returnamount = int(context.args[0])
     user_id = update.effective_user.id
 
     cursor.execute(
@@ -128,19 +136,9 @@ async def get(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(f"Вам додано {amount} MurrCoins!")
 
-# Telegram Webhook
-@app.route("/telegram-webhook", methods=["POST"])
-async def telegram_webhook():
-    update = Update.de_json(request.get_json(force=True), application.bot)
-    await application.process_update(update)
-    return jsonify({"status": "ok"})
-
 
 # Запуск Telegram бота
 async def start_telegram_bot():
-    global application
-    application = ApplicationBuilder().token(TOKEN).build()
-
     # Реєстрація команд
     application.add_handler(CommandHandler("donate", donate))
     application.add_handler(CommandHandler("balance", balance))
@@ -152,8 +150,12 @@ async def start_telegram_bot():
 
 
 if __name__ == "__main__":
-    register_monobank_webhook()  # Реєстрація вебхука для Монобанку
+    # Реєструємо вебхук Монобанку
+    register_monobank_webhook()
 
-    # Запуск Flask-сервера
-    flask_thread = asyncio.run(start_telegram_bot())
+    # Запуск Telegram бота в окремому потоці
+    import threading
+    threading.Thread(target=lambda: asyncio.run(start_telegram_bot()), daemon=True).start()
+
+    # Запуск Flask сервера
     app.run(host="0.0.0.0", port=5000)
