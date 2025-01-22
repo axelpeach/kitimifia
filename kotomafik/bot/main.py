@@ -198,5 +198,4 @@ if __name__ == "__main__":
 
     # Запуск Telegram бота
     asyncio.run(start_telegram_bot())
-# Основний код бота
-async def start_telegram_bot():
+
