@@ -9,7 +9,7 @@ from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
 # Завантаження змінних середовища
 TOKEN = os.getenv("TOKEN")
-MONOBANK_API = os.getenv("MONOBANK")
+MONOBANK_API = os.getenv("MONOBANK_API")
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # URL вашого сервера
 JAR_LINK = "https://send.monobank.ua/jar/5yxJsnYG82"
 
@@ -73,6 +73,54 @@ def monobank_webhook():
     return jsonify({"status": "success"}), 200
 
 
+# Команда /start
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    username = update.effective_user.username
+
+    # Додаємо користувача в базу, якщо його ще немає
+    cursor.execute(
+        """
+        INSERT INTO users (user_id, username)
+        VALUES (?, ?)
+        ON CONFLICT(user_id) DO NOTHING
+        """,
+        (user_id, username),
+    )
+    conn.commit()
+
+    await update.message.reply_text(
+        f"Вітаємо в боті я в говно! 🐾\n"
+        f"Доступні команди:\n"
+        f"/donate - Отримати посилання для донатів.\n"
+        f"/balance - Перевірити баланс MurrCoins.\n"
+        f"/spend <кількість> - Витратити MurrCoins на вуса.\n"
+        f"/get <кількість> - Отримати MurrCoins вручну (для тестування).\n"
+    )
+
+
+# Команда /get
+async def get(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+
+    if len(context.args) != 1 or not context.args[0].isdigit():
+        await update.message.reply_text("Будь ласка, вкажіть кількість MurrCoins для нарахування. Наприклад, /get 10.")
+        return
+
+    amount = int(context.args[0])
+
+    cursor.execute(
+        """
+        INSERT INTO users (user_id, murrcoins)
+        VALUES (?, ?)
+        ON CONFLICT(user_id) DO UPDATE SET murrcoins = murrcoins + ?
+        """,
+        (user_id, amount, amount),
+    )
+    conn.commit()
+
+    await update.message.reply_text(f"Вам нараховано {amount} MurrCoins!")
+
 # Команда /donate
 async def donate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
@@ -123,13 +171,15 @@ async def spend(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Загальна довжина вусів: {new_usik_length} мм."
     )
 
+application = ApplicationBuilder().token(TOKEN).build()
 
-# Основний код бота
-async def start_telegram_bot():application = ApplicationBuilder().token(TOKEN).build()
     # Реєстрація команд
+    application.add_handler(CommandHandler("start", start))  # Додано /start
     application.add_handler(CommandHandler("donate", donate))
     application.add_handler(CommandHandler("balance", balance))
     application.add_handler(CommandHandler("spend", spend))
+    application.add_handler(CommandHandler("get", get))  # Додано /get
+
 
     # Запуск бота
     await application.run_polling()
@@ -148,3 +198,5 @@ if __name__ == "__main__":
 
     # Запуск Telegram бота
     asyncio.run(start_telegram_bot())
+# Основний код бота
+async def start_telegram_bot():
