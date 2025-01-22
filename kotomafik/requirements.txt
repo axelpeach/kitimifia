@@ -3,3 +3,4 @@ asyncio
 nest_asyncio
 requests
 python-dotenv
+flask
