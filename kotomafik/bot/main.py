@@ -51,28 +51,35 @@ def register_monobank_webhook():
 @app.route("/monobank-webhook", methods=["POST"])
 def monobank_webhook():
     data = request.json
+    print(f"Отримано дані від Монобанку: {data}")  # Логування даних
 
     if "data" in data:
         transaction = data["data"]
         comment = transaction.get("comment")
         amount = transaction.get("amount")
 
-        if amount is None:
-            return jsonify({"status": "error", "message": "Missing 'amount' in transaction data"}), 400
+        if not comment or not comment.isdigit():
+            print("Коментар не знайдено або він не є числом!")
+            return jsonify({"status": "error", "message": "Invalid comment"}), 400
 
+        if not amount:
+            print("Поле 'amount' відсутнє!")
+            return jsonify({"status": "error", "message": "Missing 'amount'"}), 400
+
+        user_id = int(comment)
         amount = amount // 100  # Переводимо копійки в гривні
 
-        if comment and comment.isdigit():
-            user_id = int(comment)
-            cursor.execute(
-                """
-                INSERT INTO users (user_id, murrcoins)
-                VALUES (?, ?)
-                ON CONFLICT(user_id) DO UPDATE SET murrcoins = murrcoins + ?
-                """,
-                (user_id, amount, amount),
-            )
-            conn.commit()
+        # Оновлення бази даних
+        cursor.execute(
+            """
+            INSERT INTO users (user_id, murrcoins)
+            VALUES (?, ?)
+            ON CONFLICT(user_id) DO UPDATE SET murrcoins = murrcoins + ?
+            """,
+            (user_id, amount, amount),
+        )
+        conn.commit()
+        print(f"Баланс користувача {user_id} оновлено на {amount} MurrCoins.")
 
     return jsonify({"status": "success"}), 200
 
