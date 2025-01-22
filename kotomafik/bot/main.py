@@ -19,6 +19,24 @@ donations = {}
 def generate_comment_code():
     return ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
 
+# Моніторинг платежу
+async def monitor_donations():
+    while True:
+        for user_id, donation in donations.items():
+            # Отримуємо інформацію про транзакції
+            transactions = get_transactions_from_monobank(donation['comment_code'])
+
+            # Якщо транзакція є і сума відповідає тому, що ми очікуємо
+            if transactions:
+                transaction = transactions[0]  # Вибираємо першу транзакцію
+                if transaction["amount"] >= 10:  # Перевіряємо, що сума більше або дорівнює 10 грн
+                    # Нараховуємо MurrCoins
+                    user_data[user_id]["balance"] += transaction["amount"]  # Нараховуємо стільки муркоїнів, скільки грн було поповнено
+
+                    await bot.send_message(user_id, f"Ваш донат на суму {transaction['amount']} грн був зарахований! Ви отримали {transaction['amount']} MurrCoins!")
+
+        await asyncio.sleep(60)  # Чекаємо 1 хвилину перед наступною перевіркою
+
 # Команда /donate
 async def donate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
