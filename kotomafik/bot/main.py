@@ -117,7 +117,8 @@ async def balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"Ваш баланс: {balance} MurrCoins.")
     else:
         await update.message.reply_text("Ви ще не зробили жодного донату. Спробуйте це зробити через /donate.")
-      # Команда /spend для витрат муркоїнів на вуса
+
+  # Команда /spend для витрат муркоїнів на вуса
 async def spend(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     user_id = str(user.id)
@@ -155,12 +156,8 @@ async def main():
     application.add_handler(CommandHandler("spend", spend))
 
     # Запускаємо бота
-    await application.initialize()
-
-    # Запускаємо моніторинг донатів
-    asyncio.create_task(check_donations())
-
     await application.run_polling()
 
 if __name__ == "__main__":
+    # Тепер запускаємо без виклику async run для ініціалізації додатку
     asyncio.run(main())
