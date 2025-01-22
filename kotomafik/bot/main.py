@@ -1,18 +1,26 @@
 import os
 import sqlite3
+import asyncio
+import threading
 import requests
 from flask import Flask, request, jsonify
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+
+# Ініціалізація Flask
+app = Flask(__name__)
+
+# Маршрут для головної сторінки
+@app.route("/")
+def index():
+    return "Bot is running!"
+
 
 # Завантаження змінних середовища
 TOKEN = os.getenv("TOKEN")
 MONOBANK_API = os.getenv("MONOBANK")
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # URL вашого сервера
 JAR_LINK = "https://send.monobank.ua/jar/5yxJsnYG82"
-
-# Ініціалізація Flask
-app = Flask(__name__)
 
 # Ініціалізація бази даних
 conn = sqlite3.connect("bot_data.db", check_same_thread=False)
@@ -183,17 +191,16 @@ async def start_telegram_bot():
     application.add_handler(CommandHandler("spend", spend))
     application.add_handler(CommandHandler("get", get))
 
-    # Налаштування вебхука
-    await application.bot.set_webhook(f"{WEBHOOK_URL}/telegram-webhook")
-
+# Запуск Flask-сервера
+def run_flask():
+    app.run(host="0.0.0.0", port=5000)
 
 if __name__ == "__main__":
-    # Реєструємо вебхук Монобанку
+    # Реєстрація вебхука для Монобанку
     register_monobank_webhook()
 
-    # Запуск Telegram бота в окремому потоці
-    import threading
-    threading.Thread(target=lambda: asyncio.run(start_telegram_bot()), daemon=True).start()
+    # Запуск Flask у окремому потоці
+    threading.Thread(target=run_flask, daemon=True).start()
 
-    # Запуск Flask сервера
-    app.run(host="0.0.0.0", port=5000)
+    # Запуск Telegram бота
+    asyncio.run(start_telegram_bot())
