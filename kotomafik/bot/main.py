@@ -1,26 +1,19 @@
 import os
 import sqlite3
 import asyncio
-import threading
 import requests
 from flask import Flask, request, jsonify
 from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
-
-# Ініціалізація Flask
-app = Flask(__name__)
-
-# Маршрут для головної сторінки
-@app.route("/")
-def index():
-    return "Bot is running!"
-
+from telegram.ext import Application, CommandHandler, ContextTypes
 
 # Завантаження змінних середовища
 TOKEN = os.getenv("TOKEN")
 MONOBANK_API = os.getenv("MONOBANK")
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # URL вашого сервера
 JAR_LINK = "https://send.monobank.ua/jar/5yxJsnYG82"
+
+# Ініціалізація Flask
+app = Flask(__name__)
 
 # Ініціалізація бази даних
 conn = sqlite3.connect("bot_data.db", check_same_thread=False)
@@ -37,10 +30,7 @@ cursor.execute(
 )
 conn.commit()
 
-# Ініціалізація Telegram Application
-application = ApplicationBuilder().token(TOKEN).build()
-
-# Реєстрація вебхука в Монобанку
+# Реєстрація вебхука для Монобанку
 def register_monobank_webhook():
     if not MONOBANK_API:
         print("Помилка: MONOBANK_API не встановлено у середовищі!")
@@ -55,7 +45,6 @@ def register_monobank_webhook():
     else:
         print(f"Помилка реєстрації вебхука: {response.text}")
 
-
 # Обробник для вебхука Монобанку
 @app.route("/monobank-webhook", methods=["POST"])
 def monobank_webhook():
@@ -64,12 +53,7 @@ def monobank_webhook():
     if "data" in data:
         transaction = data["data"]
         comment = transaction.get("comment")
-        amount = transaction.get("amount")
-
-        if amount is None:
-            return jsonify({"status": "error", "message": "Invalid transaction data"}), 400
-
-        amount = amount // 100  # Переводимо копійки в гривні
+        amount = transaction.get("amount") // 100  # Переводимо копійки в гривні
 
         if comment and comment.isdigit():
             user_id = int(comment)
@@ -85,25 +69,13 @@ def monobank_webhook():
 
     return jsonify({"status": "success"}), 200
 
-
-# Telegram Webhook (синхронний)
-@app.route("/telegram-webhook", methods=["POST"])
-def telegram_webhook():
-    json_update = request.get_json(force=True)
-    update = Update.de_json(json_update, application.bot)
-    application.update_queue.put(update)  # Додаємо в чергу оновлень
-    return jsonify({"status": "ok"})
-
-
-# Команда /donate
+# Telegram команди
 async def donate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         f"Щоб задонатити, перейдіть за посиланням {JAR_LINK}.\n"
         f"У коментарі до платежу вкажіть ваш Telegram ID: {update.effective_user.id}."
     )
 
-
-# Команда /balance
 async def balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     cursor.execute("SELECT murrcoins FROM users WHERE user_id = ?", (user_id,))
@@ -114,93 +86,58 @@ async def balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("У вас ще немає MurrCoins. Зробіть донат, щоб отримати їх!")
 
-
-# Команда /start
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "я хочу пітсу Використовуйте команди:\n"
-        "/donate - щоб задонатити та отримати MurrCoins\n"
-        "/balance - щоб перевірити ваш баланс\n"
-        "/get <кількість> - щоб додати MurrCoins вручну (адміністративна команда)"
-    )
-
-
-# Команда /spend
 async def spend(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Перевіряємо, чи є аргумент, який вказує кількість MurrCoins для витрати
+    user_id = update.effective_user.id
     if len(context.args) != 1 or not context.args[0].isdigit():
-        await update.message.reply_text("Вкажіть кількість MurrCoins, яку хочете витратити. Наприклад: /spend 10")
+        await update.message.reply_text("Вкажіть кількість MurrCoins, які хочете витратити. Наприклад, /spend 10.")
         return
 
     amount = int(context.args[0])
-    user_id = update.effective_user.id
-
-    # Отримуємо поточний баланс користувача
-    cursor.execute("SELECT murrcoins FROM users WHERE user_id = ?", (user_id,))
+    cursor.execute("SELECT murrcoins, usik_length FROM users WHERE user_id = ?", (user_id,))
     result = cursor.fetchone()
 
-    if not result:
-        await update.message.reply_text("У вас немає MurrCoins. Поповніть свій баланс!")
+    if not result or result[0] < amount:
+        await update.message.reply_text("Недостатньо MurrCoins для витрати.")
         return
 
-    current_balance = result[0]
+    new_balance = result[0] - amount
+    new_usik_length = result[1] + (amount * 5)
 
-    # Перевіряємо, чи вистачає балансу
-    if current_balance < amount:
-        await update.message.reply_text(
-            f"Недостатньо коштів! Ваш баланс: {current_balance} MurrCoins, а потрібно: {amount}."
-        )
-        return
-
-    # Знімаємо MurrCoins з балансу
     cursor.execute(
-        "UPDATE users SET murrcoins = murrcoins - ? WHERE user_id = ?",
-        (amount, user_id),
+        "UPDATE users SET murrcoins = ?, usik_length = ? WHERE user_id = ?",
+        (new_balance, new_usik_length, user_id),
     )
     conn.commit()
 
-    await update.message.reply_text(f"Ви витратили {amount} MurrCoins. Ваш новий баланс: {current_balance - amount} MurrCoins.")
-
-
-# Команда /get
-async def get(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if len(context.args) != 1 or not context.args[0].isdigit():
-        await update.message.reply_text("Вкажіть кількість MurrCoins, яку хочете отримати. Наприклад: /get 10")
-        returnamount = int(context.args[0])
-    user_id = update.effective_user.id
-
-    cursor.execute(
-        """
-        INSERT INTO users (user_id, murrcoins)
-        VALUES (?, ?)
-        ON CONFLICT(user_id) DO UPDATE SET murrcoins = murrcoins + ?
-        """,
-        (user_id, amount, amount),
+    await update.message.reply_text(
+        f"Ви витратили {amount} MurrCoins і ваші вуса виросли на {amount * 5} мм!\n"
+        f"Новий баланс: {new_balance} MurrCoins.\n"
+        f"Загальна довжина вусів: {new_usik_length} мм."
     )
-    conn.commit()
-
-    await update.message.reply_text(f"Вам додано {amount} MurrCoins!")
-
 
 # Запуск Telegram бота
 async def start_telegram_bot():
-    # Реєстрація команд
+    application = Application.builder().token(TOKEN).build()
+
     application.add_handler(CommandHandler("donate", donate))
     application.add_handler(CommandHandler("balance", balance))
-    application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("spend", spend))
-    application.add_handler(CommandHandler("get", get))
 
-# Запуск Flask-сервера
-def run_flask():
-    app.run(host="0.0.0.0", port=5000)
+    await application.start()
+    print("Telegram-бот запущено.")
+    await application.updater.wait_closed()
 
+# Основний запуск програми
 if __name__ == "__main__":
-    # Реєстрація вебхука для Монобанку
     register_monobank_webhook()
 
-    # Запуск Flask у окремому потоці
-    threading.Thread(target=run_flask, daemon=True).start()
+    # Отримання порту для Flask-сервера
+    PORT = int(os.getenv("PORT", 5000))
 
-    # Запуск Telegram бота
+    # Запуск Flask у окремому потоці
+    import threading
+    flask_thread = threading.Thread(target=lambda: app.run(host="0.0.0.0", port=PORT), daemon=True)
+    flask_thread.start()
+
+    # Запуск Telegram-бота
     asyncio.run(start_telegram_bot())
